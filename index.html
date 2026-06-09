@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treino Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Treino">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card2: #232736;
+    --text: #e8eaf0;
+    --muted: #8b90a0;
+    --accent: #4f8ef7;
+    --green: #3ecf8e;
+    --orange: #ff9f43;
+    --red: #ff6b6b;
+    --border: #2b2f3e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: 80px;
+  }
+  .container { max-width: 680px; margin: 0 auto; padding: 16px; }
+
+  header { text-align: center; padding: 20px 0 8px; }
+  header h1 { font-size: 1.4rem; font-weight: 700; }
+  header h1 span { color: var(--accent); }
+
+  .streak-banner {
+    display: flex; justify-content: center; gap: 24px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 14px 10px; margin: 14px 0;
+  }
+  .streak-item { text-align: center; }
+  .streak-item .num { font-size: 1.5rem; font-weight: 800; }
+  .streak-item .lbl { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .flame { color: var(--orange); }
+
+  .bloco-banner {
+    background: linear-gradient(135deg, #1e2a4a, #1a1d27);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 14px; font-size: 0.85rem;
+  }
+  .bloco-banner b { color: var(--accent); }
+  .bloco-banner .meta { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+
+  .novo-bloco {
+    background: linear-gradient(135deg, #16352a, #1a1d27);
+    border: 1px solid #2e5c44; border-radius: 12px;
+    padding: 12px 16px; margin-bottom: 14px; font-size: 0.85rem;
+  }
+  .novo-bloco b { color: var(--green); }
+  .novo-bloco .meta { color: var(--muted); font-size: 0.78rem; margin-top: 4px; }
+
+  .tl-wrap { position: relative; margin-top: 12px; }
+  .timeline { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; }
+  .timeline .seg { height: 100%; border-radius: 2px; }
+  .timeline .seg.done { background: var(--green); }
+  .timeline .seg.atual { background: var(--accent); }
+  .timeline .seg.fut { background: var(--card2); }
+  .timeline .seg.deload { opacity: 0.45; }
+  .tl-marker { position: absolute; top: -3px; width: 2px; height: 16px; background: #fff; border-radius: 1px; }
+  .tl-lbls { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--muted); margin-top: 6px; }
+
+  nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--card); border-top: 1px solid var(--border);
+    display: flex; justify-content: space-around; padding: 8px 0;
+    z-index: 100;
+  }
+  nav button {
+    background: none; border: none; color: var(--muted);
+    font-size: 0.75rem; cursor: pointer; padding: 6px 14px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
+  nav button .ico { font-size: 1.2rem; }
+  nav button.active { color: var(--accent); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 16px; margin-bottom: 12px;
+  }
+  h2 { font-size: 1.05rem; margin-bottom: 12px; }
+  h3 { font-size: 0.9rem; margin-bottom: 8px; }
+
+  .treino-picker { display: flex; gap: 8px; margin-bottom: 14px; }
+  .treino-picker button {
+    flex: 1; padding: 12px 4px; border-radius: 12px;
+    border: 1px solid var(--border); background: var(--card2);
+    color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  }
+  .treino-picker button.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .treino-picker button .sub { display: block; font-size: 0.65rem; font-weight: 400; color: var(--muted); margin-top: 2px; }
+  .treino-picker button.selected .sub { color: #d8e6ff; }
+  .sugestao { font-size: 0.78rem; color: var(--green); margin-bottom: 10px; }
+
+  .exercicio { background: var(--card2); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+  .exercicio .ex-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .exercicio .ex-nome { font-weight: 600; font-size: 0.9rem; }
+  .exercicio .ex-alvo { font-size: 0.72rem; color: var(--muted); }
+  .serie-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .serie-row .s-num { width: 22px; color: var(--muted); font-size: 0.78rem; }
+  .serie-row input {
+    width: 70px; padding: 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text); font-size: 0.95rem; text-align: center;
+  }
+  .serie-row input:focus { outline: none; border-color: var(--accent); }
+  .serie-row .x { color: var(--muted); }
+  .serie-row .last { font-size: 0.7rem; color: var(--muted); flex: 1; text-align: right; }
+  .serie-row .rm-set { background:none; border:none; color: var(--muted); cursor:pointer; font-size: 0.9rem; padding: 2px 6px; }
+  .add-set { background: none; border: 1px dashed var(--border); color: var(--muted);
+    border-radius: 8px; padding: 6px; width: 100%; cursor: pointer; font-size: 0.78rem; margin-top: 2px; }
+
+  .btn-primary {
+    width: 100%; padding: 14px; border-radius: 12px; border: none;
+    background: var(--green); color: #0a2e1d; font-weight: 700;
+    font-size: 1rem; cursor: pointer; margin-top: 8px;
+  }
+  .btn-secondary {
+    padding: 10px 16px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--text); cursor: pointer; font-size: 0.85rem;
+  }
+  .btn-danger { border-color: #5a2a2a; color: var(--red); }
+
+  textarea {
+    width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-family: inherit; font-size: 0.85rem;
+    resize: vertical; min-height: 50px;
+  }
+  input[type="date"] {
+    padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--text); font-family: inherit;
+  }
+  select {
+    width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--card2); color: var(--text); font-size: 0.9rem; margin-bottom: 12px;
+  }
+
+  .hist-item { border-bottom: 1px solid var(--border); padding: 12px 0; }
+  .hist-item:last-child { border-bottom: none; }
+  .hist-head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .hist-head .h-title { font-weight: 600; font-size: 0.9rem; }
+  .hist-head .h-date { color: var(--muted); font-size: 0.78rem; }
+  .hist-body { display: none; margin-top: 10px; font-size: 0.82rem; }
+  .hist-body.open { display: block; }
+  .hist-body .h-ex { margin-bottom: 6px; }
+  .hist-body .h-ex b { color: var(--accent); font-weight: 600; }
+  .hist-body .h-sets { color: var(--muted); }
+
+  canvas { width: 100%; border-radius: 10px; }
+  .chart-info { font-size: 0.75rem; color: var(--muted); margin-top: 6px; text-align: center; }
+
+  .pr-toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--green); color: #0a2e1d; font-weight: 700;
+    padding: 12px 22px; border-radius: 12px; z-index: 200;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4); font-size: 0.9rem;
+    animation: fadein 0.3s;
+  }
+  @keyframes fadein { from { opacity: 0; transform: translate(-50%, -10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+  .week-dots { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+  .week-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--card2); border: 1px solid var(--border); }
+  .week-dot.done { background: var(--green); border-color: var(--green); }
+  .week-lbl { font-size: 0.68rem; color: var(--muted); text-align: center; margin-top: 4px; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat-box { background: var(--card2); border-radius: 12px; padding: 14px; text-align: center; }
+  .stat-box .num { font-size: 1.3rem; font-weight: 800; color: var(--accent); }
+  .stat-box .lbl { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+
+  .empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 0.85rem; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .mb { margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header><h1>💪 Treino <span>Tracker</span></h1></header>
+  <div id="streak-banner"></div>
+  <div id="bloco-banner"></div>
+  <div id="view"></div>
+</div>
+
+<nav>
+  <button data-tab="treino" class="active"><span class="ico">🏋️</span>Treino</button>
+  <button data-tab="historico"><span class="ico">📋</span>Histórico</button>
+  <button data-tab="progresso"><span class="ico">📈</span>Progresso</button>
+  <button data-tab="dados"><span class="ico">⚙️</span>Dados</button>
+</nav>
+
+<script>
+// ============ PLANO ============
+// fase = qual variação de exercícios usar (deloads mantêm os exercícios do bloco anterior)
+const BLOCOS = [
+  { nome: "Bloco 1 — Base", fase: 1, inicio: "2026-06-09", fim: "2026-07-05", composto: "8–10 reps", isolado: "12–15 reps", rir: "RIR 2–3", obs: "Técnica e consistência. Não vá à falha ainda." },
+  { nome: "Bloco 2 — Hipertrofia I", fase: 2, inicio: "2026-07-06", fim: "2026-08-09", composto: "8–12 reps", isolado: "10–15 reps", rir: "RIR 1–2", obs: "Acúmulo de volume. Progressão dupla nas cargas." },
+  { nome: "DELOAD", fase: 2, inicio: "2026-08-10", fim: "2026-08-16", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve. Recuperar pra atacar o próximo bloco." },
+  { nome: "Bloco 3 — Força-Hipertrofia", fase: 3, inicio: "2026-08-17", fim: "2026-09-20", composto: "5–8 reps", isolado: "8–12 reps", rir: "RIR 1–2", obs: "Cargas mais pesadas nos compostos. Descansos maiores (2–3min)." },
+  { nome: "DELOAD", fase: 3, inicio: "2026-09-21", fim: "2026-09-27", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve." },
+  { nome: "Bloco 4 — Hipertrofia II", fase: 4, inicio: "2026-09-28", fim: "2026-11-01", composto: "6–10 reps", isolado: "10–15 reps", rir: "RIR 0–1", obs: "Intensidade máxima. Última série dos isolados = drop-set." },
+  { nome: "DELOAD", fase: 4, inicio: "2026-11-02", fim: "2026-11-08", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve." },
+  { nome: "Bloco 5 — Polimento 🏖️", fase: 5, inicio: "2026-11-09", fim: "2026-12-20", composto: "8–12 reps", isolado: "12–20 reps", rir: "RIR 0–1", obs: "Descansos curtos (45–60s nos isolados). Leve déficit calórico. Reta final!" },
+];
+
+// "nome" pode ser uma string (exercício fixo o ano todo) ou um mapa {fase: nome}
+// (variação que troca na virada de cada bloco). "alvo" também aceita mapa por fase.
+const TREINOS = {
+  A: { nome: "Peito, Ombro, Tríceps + Core", aquecimento: "5min bike + 2x15 rotação externa na polia (leve)",
+    exercicios: [
+      { nome: "Supino inclinado c/ halteres", tipo: "composto", series: 4 },
+      { nome: { 1: "Supino reto na barra (gaiola)", 2: "Crucifixo no crossover", 3: "Supino reto na barra (gaiola)", 4: "Supino reto c/ halteres", 5: "Crucifixo no crossover" }, tipo: "composto", series: 3 },
+      { nome: { 1: "Desenvolvimento na máquina", 2: "Desenvolvimento c/ halteres sentado", 3: "Desenvolvimento na máquina", 4: "Desenvolvimento c/ halteres sentado", 5: "Desenvolvimento na máquina" }, tipo: "composto", series: 3 },
+      { nome: { 1: "Elevação lateral c/ halteres", 2: "Elevação lateral no crossover", 3: "Elevação lateral c/ halteres", 4: "Elevação lateral no crossover", 5: "Elevação lateral c/ halteres" }, tipo: "isolado", series: 3 },
+      { nome: { 1: "Tríceps corda no crossover", 2: "Tríceps testa c/ barra W", 3: "Tríceps barra reta na polia", 4: "Tríceps corda no crossover", 5: "Tríceps francês c/ halter" }, tipo: "isolado", series: 3 },
+      { nome: "Pallof press no crossover", tipo: "core", series: 3, alvo: "10–12/lado" },
+      { nome: { 1: "Prancha", 2: "Prancha c/ pés elevados", 3: "Prancha c/ anilha nas costas", 4: "Prancha lateral", 5: "Prancha c/ anilha nas costas" }, tipo: "core", series: 3, alvo: "30–60s", tempo: true },
+    ]},
+  B: { nome: "Pernas + Core pesado", aquecimento: "5min bike + 1 série leve de agachamento",
+    exercicios: [
+      { nome: "Agachamento na barra guiada", tipo: "composto", series: 4 },
+      { nome: "Leg press 45", tipo: "composto", series: 3 },
+      { nome: "Stiff/RDL c/ halteres", tipo: "composto", series: 3 },
+      { nome: "Mesa flexora", tipo: "isolado", series: 3 },
+      { nome: { 1: "Panturrilha no leg press", 2: "Panturrilha em pé na barra guiada", 3: "Panturrilha no leg press", 4: "Panturrilha em pé na barra guiada", 5: "Panturrilha no leg press" }, tipo: "isolado", series: 4 },
+      { nome: "Elevação de pernas na barra fixa", tipo: "core", series: 3, alvo: "máx reps" },
+      { nome: { 1: "Abdominal no banco declinado", 2: "Dead bug", 3: "Abdominal declinado c/ anilha", 4: "Farmer's walk c/ kettlebell", 5: "Abdominal no banco declinado" }, tipo: "core", series: 3, alvo: { 1: "12–20", 2: "10–12/lado", 3: "10–15", 4: "30–40 metros", 5: "12–20" } },
+    ]},
+  C: { nome: "Costas, Bíceps + Core", aquecimento: "5min bike + 2x15 rotação externa na polia (leve)",
+    exercicios: [
+      { nome: "Barra fixa", tipo: "composto", series: 4, alvo: "AMRAP" },
+      { nome: { 1: "Puxada alta", 2: "Puxada pegada supinada", 3: "Puxada alta", 4: "Pullover no crossover", 5: "Puxada pegada supinada" }, tipo: "composto", series: 3 },
+      { nome: { 1: "Remada baixa", 2: "Serrote c/ halter", 3: "Remada baixa", 4: "Remada apoiada no banco inclinado", 5: "Serrote c/ halter" }, tipo: "composto", series: 3 },
+      { nome: "Face pull no crossover", tipo: "isolado", series: 3 },
+      { nome: { 1: "Rosca direta barra W", 2: "Rosca alternada c/ halteres", 3: "Rosca direta barra W", 4: "Rosca alternada c/ halteres", 5: "Rosca no crossover" }, tipo: "isolado", series: 3 },
+      { nome: { 1: "Rosca scott", 2: "Rosca martelo", 3: "Rosca scott", 4: "Rosca martelo", 5: "Rosca scott" }, tipo: "isolado", series: 2 },
+      { nome: "Abdominal na polia (cable crunch)", tipo: "core", series: 3, alvo: "12–15" },
+    ]},
+};
+
+// ============ ESTADO ============
+const STORAGE_KEY = "treino-tracker-v1";
+let state = load();
+function load() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { sessoes: [] }; }
+  catch { return { sessoes: [] }; }
+}
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+let currentTab = "treino";
+let selectedTreino = null;
+let draftSets = {}; // {exNome: [{peso, reps}]}
+let draftDate = hoje();
+
+function hoje() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function fmtData(iso) {
+  const [y,m,d] = iso.split("-");
+  return d + "/" + m + "/" + y.slice(2);
+}
+function diaSemana(iso) {
+  return ["dom","seg","ter","qua","qui","sex","sáb"][new Date(iso + "T12:00:00").getDay()];
+}
+
+// ============ BLOCO ATUAL ============
+function blocoAtual(dataIso) {
+  const d = dataIso || hoje();
+  return BLOCOS.find(b => d >= b.inicio && d <= b.fim) || null;
+}
+function faseAtual(dataIso) {
+  const d = dataIso || hoje();
+  const b = blocoAtual(d);
+  if (b) return b.fase;
+  if (d > BLOCOS[BLOCOS.length - 1].fim) return 5; // manutenção usa exercícios do polimento
+  return 1;
+}
+function nomeEx(ex, fase) {
+  return typeof ex.nome === "string" ? ex.nome : (ex.nome[fase] || ex.nome[1]);
+}
+function alvoEx(ex, fase) {
+  if (!ex.alvo) return null;
+  return typeof ex.alvo === "object" ? (ex.alvo[fase] || ex.alvo[1]) : ex.alvo;
+}
+
+// ============ STREAK (semanas com 3+ treinos) ============
+function inicioSemana(iso) { // segunda-feira da semana
+  const d = new Date(iso + "T12:00:00");
+  const day = (d.getDay() + 6) % 7; // 0=seg
+  d.setDate(d.getDate() - day);
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function semanasMap() {
+  const map = {};
+  for (const s of state.sessoes) {
+    const w = inicioSemana(s.data);
+    map[w] = (map[w] || 0) + 1;
+  }
+  return map;
+}
+function calcStreak() {
+  const map = semanasMap();
+  const META = 3;
+  const wAtual = inicioSemana(hoje());
+  let streak = 0;
+  let w = wAtual;
+  const atualCompleta = (map[wAtual] || 0) >= META;
+  // semana atual em andamento não quebra o streak; se completa, conta
+  if (atualCompleta) streak++;
+  // semanas anteriores
+  let dt = new Date(wAtual + "T12:00:00");
+  while (true) {
+    dt.setDate(dt.getDate() - 7);
+    const wk = dt.getFullYear() + "-" + String(dt.getMonth()+1).padStart(2,"0") + "-" + String(dt.getDate()).padStart(2,"0");
+    if ((map[wk] || 0) >= META) streak++;
+    else break;
+  }
+  // melhor streak histórico
+  const weeks = Object.keys(map).filter(w => (map[w] || 0) >= META).sort();
+  let best = 0, run = 0, prev = null;
+  for (const wk of weeks) {
+    if (prev) {
+      const diff = (new Date(wk + "T12:00:00") - new Date(prev + "T12:00:00")) / (7*24*3600*1000);
+      run = (diff === 1) ? run + 1 : 1;
+    } else run = 1;
+    best = Math.max(best, run);
+    prev = wk;
+  }
+  return { streak, best: Math.max(best, streak), estaSemana: map[wAtual] || 0, meta: META };
+}
+
+// ============ e1RM e PRs ============
+function e1rm(peso, reps) {
+  if (!peso || !reps) return 0;
+  if (reps === 1) return peso;
+  return peso * (1 + reps / 30);
+}
+function melhorE1rm(exNome, antesDe) {
+  let best = 0;
+  for (const s of state.sessoes) {
+    if (antesDe && s.id === antesDe) continue;
+    for (const ex of s.exercicios) {
+      if (ex.nome !== exNome) continue;
+      for (const set of ex.series) best = Math.max(best, e1rm(set.peso, set.reps));
+    }
+  }
+  return best;
+}
+function ultimaSessaoDoTreino(letra) {
+  const list = state.sessoes.filter(s => s.treino === letra).sort((a,b) => b.data.localeCompare(a.data));
+  return list[0] || null;
+}
+function proximoTreinoSugerido() {
+  const ult = state.sessoes.slice().sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id))[0];
+  if (!ult) return "A";
+  return { A: "B", B: "C", C: "A" }[ult.treino] || "A";
+}
+
+// ============ RENDER ============
+function render() {
+  renderStreakBanner();
+  renderBlocoBanner();
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === currentTab));
+  const v = document.getElementById("view");
+  if (currentTab === "treino") renderTreino(v);
+  else if (currentTab === "historico") renderHistorico(v);
+  else if (currentTab === "progresso") renderProgresso(v);
+  else renderDados(v);
+}
+
+function renderStreakBanner() {
+  const { streak, best, estaSemana, meta } = calcStreak();
+  const dots = Array.from({length: meta}, (_, i) =>
+    `<div class="week-dot ${i < estaSemana ? "done" : ""}"></div>`).join("");
+  const extra = estaSemana > meta ? ` <span style="color:var(--green);font-size:0.7rem">+${estaSemana - meta}</span>` : "";
+  document.getElementById("streak-banner").innerHTML = `
+    <div class="streak-banner">
+      <div class="streak-item"><div class="num flame">🔥 ${streak}</div><div class="lbl">semanas seguidas</div></div>
+      <div class="streak-item">
+        <div class="week-dots">${dots}</div>
+        <div class="week-lbl">esta semana: ${estaSemana}/${meta}${extra}</div>
+      </div>
+      <div class="streak-item"><div class="num">🏆 ${best}</div><div class="lbl">recorde</div></div>
+    </div>`;
+}
+
+function renderBlocoBanner() {
+  const b = blocoAtual();
+  const el = document.getElementById("bloco-banner");
+  let html = "";
+  // aviso de virada de bloco (fica até o usuário dispensar)
+  const nomeAtual = b ? b.nome : "Manutenção 🏖️";
+  if (state.blocoVisto !== nomeAtual) {
+    html += `<div class="novo-bloco">
+      <b>🔄 Bloco novo: ${nomeAtual}</b>
+      <div class="meta">${b ? b.obs + " Exercícios e alvos de reps já atualizados na tela de treino." : "Plano concluído! Agora é manter o que foi construído."}</div>
+      <button class="btn-secondary" style="margin-top:8px" onclick="dismissNovoBloco('${esc(nomeAtual)}')">Entendi 💪</button>
+    </div>`;
+  }
+  if (b) {
+    html += `<div class="bloco-banner">
+      <b>${b.nome}</b> · até ${fmtData(b.fim)}
+      <div class="meta">Compostos: ${b.composto} · Isolados: ${b.isolado} · ${b.rir}</div>
+      <div class="meta">${b.obs}</div>
+      ${timelineHtml()}
+    </div>`;
+  } else {
+    html += `<div class="bloco-banner"><b>Manutenção</b> — plano concluído. Bora pra praia! 🏖️${timelineHtml()}</div>`;
+  }
+  el.innerHTML = html;
+}
+function dismissNovoBloco(nome) {
+  state.blocoVisto = nome;
+  save();
+  render();
+}
+
+function timelineHtml() {
+  const ini = new Date(BLOCOS[0].inicio + "T12:00:00");
+  const fim = new Date(BLOCOS[BLOCOS.length - 1].fim + "T12:00:00");
+  const agora = new Date(hoje() + "T12:00:00");
+  const total = fim - ini;
+  const pct = Math.min(100, Math.max(0, (agora - ini) / total * 100));
+  let segs = "";
+  for (const b of BLOCOS) {
+    const bi = new Date(b.inicio + "T12:00:00"), bf = new Date(b.fim + "T12:00:00");
+    const w = ((bf - bi) + 24 * 3600 * 1000) / total * 100;
+    const isDeload = b.nome === "DELOAD";
+    let cls = "fut";
+    const h = hoje();
+    if (h > b.fim) cls = "done";
+    else if (h >= b.inicio) cls = "atual";
+    segs += `<div class="seg ${cls}${isDeload ? " deload" : ""}" style="width:${w}%" title="${b.nome}: ${fmtData(b.inicio)} a ${fmtData(b.fim)}"></div>`;
+  }
+  const semanas = Math.max(0, Math.ceil((fim - agora) / (7 * 24 * 3600 * 1000)));
+  return `<div class="tl-wrap">
+    <div class="timeline">${segs}</div>
+    <div class="tl-marker" style="left:${pct.toFixed(1)}%"></div>
+    <div class="tl-lbls">
+      <span>${fmtData(BLOCOS[0].inicio).slice(0,5)}</span>
+      <span>${Math.round(pct)}% concluído · faltam ${semanas} semanas</span>
+      <span>🏖️ ${fmtData(BLOCOS[BLOCOS.length-1].fim).slice(0,5)}</span>
+    </div>
+  </div>`;
+}
+
+// ---------- ABA TREINO ----------
+function renderTreino(v) {
+  const sugestao = proximoTreinoSugerido();
+  let html = `<div class="card">
+    <h2>Registrar treino</h2>
+    <div class="sugestao">Sugestão de hoje: <b>Treino ${sugestao}</b> (rotação A→B→C)</div>
+    <div class="treino-picker">
+      ${["A","B","C"].map(l => `
+        <button class="${selectedTreino === l ? "selected" : ""}" onclick="selecionarTreino('${l}')">
+          Treino ${l}<span class="sub">${TREINOS[l].nome}</span>
+        </button>`).join("")}
+    </div>`;
+
+  if (selectedTreino) {
+    const t = TREINOS[selectedTreino];
+    const b = blocoAtual(draftDate);
+    const fase = faseAtual(draftDate);
+    html += `<div class="row mb">
+      <label style="font-size:0.8rem;color:var(--muted)">Data:</label>
+      <input type="date" value="${draftDate}" onchange="draftDate=this.value;selecionarTreino(selectedTreino)">
+    </div>
+    <div style="font-size:0.78rem;color:var(--orange);margin-bottom:12px">🔥 Aquecimento: ${t.aquecimento}</div>`;
+
+    for (const ex of t.exercicios) {
+      const nome = nomeEx(ex, fase);
+      const sets = draftSets[nome] || [];
+      const alvo = alvoEx(ex, fase) || (b ? (ex.tipo === "composto" ? b.composto : b.isolado) : "");
+      const ultima = ultimaPerformance(nome);
+      html += `<div class="exercicio">
+        <div class="ex-head">
+          <span class="ex-nome">${nome}</span>
+          <span class="ex-alvo">${alvo}</span>
+        </div>`;
+      sets.forEach((set, i) => {
+        const lastTxt = ultima && ultima[i] ? `ant: ${ultima[i].peso}kg×${ultima[i].reps}` : (ultima && ultima[0] ? `ant: ${ultima[0].peso}kg×${ultima[0].reps}` : "");
+        html += `<div class="serie-row">
+          <span class="s-num">${i+1}.</span>
+          <input type="text" inputmode="decimal" placeholder="kg" value="${set.peso ?? ""}"
+            onchange="setVal('${esc(nome)}',${i},'peso',this.value)">
+          <span class="x">×</span>
+          <input type="text" inputmode="numeric" placeholder="${ex.tempo ? "seg" : "reps"}" value="${set.reps ?? ""}"
+            onchange="setVal('${esc(nome)}',${i},'reps',this.value)">
+          <span class="last">${lastTxt}</span>
+          <button class="rm-set" onclick="removeSet('${esc(nome)}',${i})">✕</button>
+        </div>`;
+      });
+      html += `<button class="add-set" onclick="addSet('${esc(nome)}')">+ série</button></div>`;
+    }
+    html += `<div class="mb"><textarea id="obs-treino" placeholder="Observações (dores, energia, ajustes...)"></textarea></div>
+      <button class="btn-primary" onclick="salvarSessao()">✅ Salvar treino</button>`;
+  }
+  html += `</div>`;
+  v.innerHTML = html;
+}
+
+function esc(s) { return s.replace(/'/g, "\\'"); }
+
+function ultimaPerformance(exNome) {
+  const sessoes = state.sessoes.slice().sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id));
+  for (const s of sessoes) {
+    const ex = s.exercicios.find(e => e.nome === exNome);
+    if (ex && ex.series.length) return ex.series;
+  }
+  return null;
+}
+
+function selecionarTreino(letra) {
+  selectedTreino = letra;
+  draftSets = {};
+  const fase = faseAtual(draftDate);
+  for (const ex of TREINOS[letra].exercicios) {
+    const nome = nomeEx(ex, fase);
+    const ultima = ultimaPerformance(nome);
+    draftSets[nome] = Array.from({length: ex.series}, (_, i) => {
+      const ref = ultima ? (ultima[i] || ultima[ultima.length-1]) : null;
+      return { peso: ref ? ref.peso : "", reps: "" };
+    });
+  }
+  render();
+}
+function setVal(exNome, i, campo, val) {
+  val = String(val).replace(",", ".").trim();
+  draftSets[exNome][i][campo] = val === "" ? "" : parseFloat(val);
+}
+function addSet(exNome) {
+  const sets = draftSets[exNome];
+  const last = sets[sets.length-1];
+  sets.push({ peso: last ? last.peso : "", reps: "" });
+  render();
+}
+function removeSet(exNome, i) {
+  draftSets[exNome].splice(i, 1);
+  render();
+}
+
+function salvarSessao() {
+  if (!selectedTreino) return;
+  const exercicios = [];
+  const prs = [];
+  const fase = faseAtual(draftDate);
+  for (const ex of TREINOS[selectedTreino].exercicios) {
+    const nome = nomeEx(ex, fase);
+    const series = (draftSets[nome] || [])
+      .filter(s => s.reps !== "" && s.reps != null && !isNaN(s.reps))
+      .map(s => ({ peso: (s.peso === "" || isNaN(s.peso)) ? 0 : s.peso, reps: s.reps }));
+    if (series.length) {
+      exercicios.push({ nome, series });
+      // detectar PR (só exercícios com carga)
+      const bestAntes = melhorE1rm(nome);
+      const bestAgora = Math.max(...series.map(s => e1rm(s.peso, s.reps)));
+      if (bestAntes > 0 && bestAgora > bestAntes) prs.push(nome);
+    }
+  }
+  if (!exercicios.length) { alert("Preencha pelo menos um exercício!"); return; }
+  const obs = document.getElementById("obs-treino").value.trim();
+  state.sessoes.push({ id: Date.now(), data: draftDate, treino: selectedTreino, exercicios, obs });
+  save();
+  selectedTreino = null;
+  draftSets = {};
+  draftDate = hoje();
+  render();
+  if (prs.length) toast(`🏆 PR! ${prs.join(", ")}`);
+  else toast("✅ Treino salvo!");
+}
+
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "pr-toast";
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3000);
+}
+
+// ---------- ABA HISTÓRICO ----------
+function renderHistorico(v) {
+  const sessoes = state.sessoes.slice().sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id));
+  let html = `<div class="card"><h2>Histórico (${sessoes.length} treinos)</h2>`;
+  if (!sessoes.length) html += `<div class="empty">Nenhum treino registrado ainda.<br>Bora começar! 💪</div>`;
+  for (const s of sessoes) {
+    html += `<div class="hist-item">
+      <div class="hist-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <span class="h-title">Treino ${s.treino} <span style="color:var(--muted);font-weight:400;font-size:0.78rem">· ${TREINOS[s.treino]?.nome || ""}</span></span>
+        <span class="h-date">${diaSemana(s.data)} ${fmtData(s.data)}</span>
+      </div>
+      <div class="hist-body">
+        ${s.exercicios.map(ex => `<div class="h-ex"><b>${ex.nome}</b><br>
+          <span class="h-sets">${ex.series.map(st => `${st.peso || "—"}kg×${st.reps}`).join("  ·  ")}</span></div>`).join("")}
+        ${s.obs ? `<div style="color:var(--orange);margin-top:6px">📝 ${s.obs}</div>` : ""}
+        <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirSessao(${s.id})">Excluir</button>
+      </div>
+    </div>`;
+  }
+  html += `</div>`;
+  v.innerHTML = html;
+}
+function excluirSessao(id) {
+  if (!confirm("Excluir este treino?")) return;
+  state.sessoes = state.sessoes.filter(s => s.id !== id);
+  save();
+  render();
+}
+
+// ---------- ABA PROGRESSO ----------
+let exSelecionado = null;
+function renderProgresso(v) {
+  const todosEx = [...new Set(["A","B","C"].flatMap(l => TREINOS[l].exercicios.flatMap(e => typeof e.nome === "string" ? [e.nome] : Object.values(e.nome))))];
+  const comDados = todosEx.filter(nome => state.sessoes.some(s => s.exercicios.some(e => e.nome === nome)));
+  if (!exSelecionado && comDados.length) exSelecionado = comDados[0];
+
+  // stats gerais
+  let totalVolume = 0, totalSets = 0;
+  for (const s of state.sessoes) for (const ex of s.exercicios) for (const st of ex.series) {
+    totalVolume += (st.peso || 0) * st.reps;
+    totalSets++;
+  }
+
+  let html = `<div class="card">
+    <h2>Estatísticas</h2>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num">${state.sessoes.length}</div><div class="lbl">treinos no total</div></div>
+      <div class="stat-box"><div class="num">${(totalVolume/1000).toFixed(1)}t</div><div class="lbl">volume total levantado</div></div>
+      <div class="stat-box"><div class="num">${totalSets}</div><div class="lbl">séries feitas</div></div>
+      <div class="stat-box"><div class="num">${Object.keys(semanasMap()).length}</div><div class="lbl">semanas ativas</div></div>
+    </div>
+  </div>`;
+
+  html += `<div class="card"><h2>Evolução por exercício</h2>`;
+  if (!comDados.length) {
+    html += `<div class="empty">Registre treinos pra ver os gráficos de evolução aqui. 📈</div></div>`;
+  } else {
+    html += `<select onchange="exSelecionado=this.value;render()">
+      ${comDados.map(n => `<option value="${n}" ${n === exSelecionado ? "selected" : ""}>${n}</option>`).join("")}
+    </select>
+    <canvas id="chart-ex" height="220"></canvas>
+    <div class="chart-info">— melhor série (1RM estimado) · cada ponto = um treino</div></div>`;
+  }
+
+  html += `<div class="card"><h3>Frequência semanal (últimas 12 semanas)</h3>
+    <canvas id="chart-freq" height="120"></canvas></div>`;
+
+  v.innerHTML = html;
+  if (comDados.length) desenharChartExercicio();
+  desenharChartFrequencia();
+}
+
+function desenharChartExercicio() {
+  const pontos = [];
+  const sessoes = state.sessoes.slice().sort((a,b) => a.data.localeCompare(b.data) || (a.id - b.id));
+  for (const s of sessoes) {
+    const ex = s.exercicios.find(e => e.nome === exSelecionado);
+    if (!ex) continue;
+    const best = Math.max(...ex.series.map(st => e1rm(st.peso, st.reps)));
+    const topPeso = Math.max(...ex.series.map(st => st.peso || 0));
+    pontos.push({ data: s.data, val: best, peso: topPeso });
+  }
+  lineChart(document.getElementById("chart-ex"), pontos.map(p => p.val), pontos.map(p => fmtData(p.data).slice(0,5)), "kg");
+}
+
+function desenharChartFrequencia() {
+  const map = semanasMap();
+  const semanas = [];
+  let d = new Date(inicioSemana(hoje()) + "T12:00:00");
+  for (let i = 0; i < 12; i++) {
+    const wk = d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+    semanas.unshift({ wk, count: map[wk] || 0 });
+    d.setDate(d.getDate() - 7);
+  }
+  barChart(document.getElementById("chart-freq"), semanas.map(s => s.count), semanas.map(s => fmtData(s.wk).slice(0,5)), 3);
+}
+
+// ---------- charts (canvas puro) ----------
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.parentElement.clientWidth - 32;
+  const h = parseInt(canvas.getAttribute("height"));
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + "px";
+  canvas.style.height = h + "px";
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+  return { ctx, w, h };
+}
+
+function lineChart(canvas, vals, labels, unit) {
+  const { ctx, w, h } = setupCanvas(canvas);
+  if (!vals.length) return;
+  const pad = { l: 40, r: 12, t: 14, b: 24 };
+  const min = Math.min(...vals) * 0.95, max = Math.max(...vals) * 1.05 || 1;
+  const X = i => pad.l + (vals.length === 1 ? (w-pad.l-pad.r)/2 : i * (w - pad.l - pad.r) / (vals.length - 1));
+  const Y = v => pad.t + (1 - (v - min) / (max - min || 1)) * (h - pad.t - pad.b);
+  // grid
+  ctx.strokeStyle = "#2b2f3e"; ctx.fillStyle = "#8b90a0"; ctx.font = "10px Segoe UI"; ctx.lineWidth = 1;
+  for (let g = 0; g <= 3; g++) {
+    const v = min + (max - min) * g / 3, y = Y(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
+    ctx.fillText(Math.round(v) + (unit || ""), 2, y + 3);
+  }
+  // linha
+  ctx.strokeStyle = "#4f8ef7"; ctx.lineWidth = 2; ctx.beginPath();
+  vals.forEach((v, i) => i === 0 ? ctx.moveTo(X(i), Y(v)) : ctx.lineTo(X(i), Y(v)));
+  ctx.stroke();
+  // pontos + labels
+  ctx.fillStyle = "#4f8ef7";
+  vals.forEach((v, i) => { ctx.beginPath(); ctx.arc(X(i), Y(v), 3.5, 0, 7); ctx.fill(); });
+  ctx.fillStyle = "#8b90a0";
+  const step = Math.ceil(vals.length / 6);
+  labels.forEach((lb, i) => { if (i % step === 0 || i === vals.length-1) ctx.fillText(lb, X(i) - 12, h - 6); });
+  // último valor
+  ctx.fillStyle = "#3ecf8e"; ctx.font = "bold 11px Segoe UI";
+  ctx.fillText(Math.round(vals[vals.length-1]) + (unit||""), X(vals.length-1) - 14, Y(vals[vals.length-1]) - 8);
+}
+
+function barChart(canvas, vals, labels, meta) {
+  const { ctx, w, h } = setupCanvas(canvas);
+  const pad = { l: 20, r: 8, t: 10, b: 22 };
+  const max = Math.max(meta + 1, ...vals);
+  const bw = (w - pad.l - pad.r) / vals.length;
+  // linha da meta
+  const yMeta = pad.t + (1 - meta / max) * (h - pad.t - pad.b);
+  ctx.strokeStyle = "#ff9f43"; ctx.setLineDash([4, 4]); ctx.beginPath();
+  ctx.moveTo(pad.l, yMeta); ctx.lineTo(w - pad.r, yMeta); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#ff9f43"; ctx.font = "9px Segoe UI"; ctx.fillText("meta", 0, yMeta + 3);
+  vals.forEach((v, i) => {
+    const bh = (v / max) * (h - pad.t - pad.b);
+    ctx.fillStyle = v >= meta ? "#3ecf8e" : "#4f8ef7";
+    ctx.fillRect(pad.l + i * bw + bw * 0.18, h - pad.b - bh, bw * 0.64, bh);
+    ctx.fillStyle = "#8b90a0"; ctx.font = "9px Segoe UI";
+    if (i % 2 === 0) ctx.fillText(labels[i], pad.l + i * bw + 2, h - 8);
+  });
+}
+
+// ---------- ABA DADOS ----------
+function renderDados(v) {
+  v.innerHTML = `<div class="card">
+    <h2>Backup e dados</h2>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px">
+      Seus dados ficam salvos no navegador deste computador. Exporte um backup de vez em quando
+      (o arquivo cai na pasta de Downloads — guarde na pasta Treinos do OneDrive).</p>
+    <div class="row mb">
+      <button class="btn-secondary" onclick="exportar()">⬇️ Exportar backup</button>
+      <button class="btn-secondary" onclick="document.getElementById('imp').click()">⬆️ Importar backup</button>
+      <input type="file" id="imp" accept=".json" style="display:none" onchange="importar(this)">
+    </div>
+    <button class="btn-secondary btn-danger" onclick="resetar()">🗑️ Apagar tudo</button>
+  </div>
+  <div class="card">
+    <h3>Sobre o plano</h3>
+    <p style="font-size:0.82rem;color:var(--muted)">
+      Periodização jun–dez 2026 · 3x/semana (A/B/C) + corrida 5km e 10km.<br><br>
+      <b style="color:var(--text)">Progressão dupla:</b> bateu o topo da faixa de reps em todas as séries → sobe a carga e volta pro piso da faixa.<br><br>
+      <b style="color:var(--text)">Lembretes:</b> creatina 5g todo dia · proteína 160–180g/dia · qualquer dor irradiada na lombar = parar o exercício.</p>
+  </div>`;
+}
+function exportar() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "treino-backup-" + hoje() + ".json";
+  a.click();
+}
+function importar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!Array.isArray(data.sessoes)) throw new Error();
+      state = data;
+      save();
+      render();
+      toast("✅ Backup importado!");
+    } catch { alert("Arquivo inválido."); }
+  };
+  reader.readAsText(file);
+}
+function resetar() {
+  if (!confirm("Apagar TODOS os dados? Essa ação não pode ser desfeita.")) return;
+  if (!confirm("Tem certeza mesmo? Exportou o backup?")) return;
+  state = { sessoes: [] };
+  save();
+  render();
+}
+
+// ============ NAV ============
+document.querySelectorAll("nav button").forEach(b => {
+  b.addEventListener("click", () => { currentTab = b.dataset.tab; render(); });
+});
+window.addEventListener("resize", () => { if (currentTab === "progresso") render(); });
+render();
+
+// PWA: service worker para funcionar offline na academia
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js");
+}
+</script>
+</body>
+</html>
