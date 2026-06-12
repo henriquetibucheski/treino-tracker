@@ -226,7 +226,7 @@ const TREINOS = {
       { nome: { 1: "Desenvolvimento na máquina", 2: "Desenvolvimento c/ halteres sentado", 3: "Desenvolvimento na máquina", 4: "Desenvolvimento c/ halteres sentado", 5: "Desenvolvimento na máquina" }, tipo: "composto", series: 3 },
       { nome: { 1: "Elevação lateral c/ halteres", 2: "Elevação lateral no crossover", 3: "Elevação lateral c/ halteres", 4: "Elevação lateral no crossover", 5: "Elevação lateral c/ halteres" }, tipo: "isolado", series: 3 },
       { nome: { 1: "Tríceps corda no crossover", 2: "Tríceps testa c/ barra W", 3: "Tríceps barra reta na polia", 4: "Tríceps corda no crossover", 5: "Tríceps francês c/ halter" }, tipo: "isolado", series: 3 },
-      { nome: "Pallof press no crossover", tipo: "core", series: 3, alvo: "10–12/lado" },
+      { nome: "Lenhador no crossover (alto→baixo)", tipo: "core", series: 3, alvo: "10–12/lado" },
       { nome: { 1: "Prancha", 2: "Prancha c/ pés elevados", 3: "Prancha c/ anilha nas costas", 4: "Prancha lateral", 5: "Prancha c/ anilha nas costas" }, tipo: "core", series: 3, alvo: "30–60s", tempo: true },
     ]},
   B: { nome: "Pernas + Core pesado", aquecimento: "5min bike + 1 série leve de agachamento",
@@ -236,7 +236,7 @@ const TREINOS = {
       { nome: "Stiff/RDL c/ halteres", tipo: "composto", series: 3 },
       { nome: "Mesa flexora", tipo: "isolado", series: 3 },
       { nome: { 1: "Panturrilha no leg press", 2: "Panturrilha em pé na barra guiada", 3: "Panturrilha no leg press", 4: "Panturrilha em pé na barra guiada", 5: "Panturrilha no leg press" }, tipo: "isolado", series: 4 },
-      { nome: "Elevação de pernas na barra fixa", tipo: "core", series: 3, alvo: "máx reps" },
+      { nome: "Abdominal infra no banco declinado (reverse crunch)", tipo: "core", series: 3, alvo: "12–15" },
       { nome: { 1: "Abdominal no banco declinado", 2: "Dead bug", 3: "Abdominal declinado c/ anilha", 4: "Farmer's walk c/ kettlebell", 5: "Abdominal no banco declinado" }, tipo: "core", series: 3, alvo: { 1: "12–20", 2: "10–12/lado", 3: "10–15", 4: "30–40 metros", 5: "12–20" } },
     ]},
   C: { nome: "Costas, Bíceps + Core", aquecimento: "5min bike + 2x15 rotação externa na polia (leve)",
@@ -244,7 +244,7 @@ const TREINOS = {
       { nome: "Barra fixa", tipo: "composto", series: 4, alvo: "AMRAP" },
       { nome: { 1: "Puxada alta", 2: "Puxada pegada supinada", 3: "Puxada alta", 4: "Pullover no crossover", 5: "Puxada pegada supinada" }, tipo: "composto", series: 3 },
       { nome: { 1: "Remada baixa", 2: "Serrote c/ halter", 3: "Remada baixa", 4: "Remada apoiada no banco inclinado", 5: "Serrote c/ halter" }, tipo: "composto", series: 3 },
-      { nome: "Face pull no crossover", tipo: "isolado", series: 3 },
+      { nome: "Crucifixo invertido apoiado no banco inclinado", tipo: "isolado", series: 3 },
       { nome: { 1: "Rosca direta barra W", 2: "Rosca alternada c/ halteres", 3: "Rosca direta barra W", 4: "Rosca alternada c/ halteres", 5: "Rosca no crossover" }, tipo: "isolado", series: 3 },
       { nome: { 1: "Rosca scott", 2: "Rosca martelo", 3: "Rosca scott", 4: "Rosca martelo", 5: "Rosca scott" }, tipo: "isolado", series: 2 },
       { nome: "Abdominal na polia (cable crunch)", tipo: "core", series: 3, alvo: "12–15" },
@@ -652,7 +652,7 @@ function renderProgresso(v) {
       ${comDados.map(n => `<option value="${n}" ${n === exSelecionado ? "selected" : ""}>${n}</option>`).join("")}
     </select>
     <canvas id="chart-ex" height="220"></canvas>
-    <div class="chart-info">— melhor série (1RM estimado) · cada ponto = um treino</div></div>`;
+    <div class="chart-info">— volume load (Σ peso × reps de todas as séries) · cada ponto = um treino</div></div>`;
   }
 
   html += `<div class="card"><h3>Frequência semanal (últimas 12 semanas)</h3>
@@ -669,9 +669,8 @@ function desenharChartExercicio() {
   for (const s of sessoes) {
     const ex = s.exercicios.find(e => e.nome === exSelecionado);
     if (!ex) continue;
-    const best = Math.max(...ex.series.map(st => e1rm(st.peso, st.reps)));
-    const topPeso = Math.max(...ex.series.map(st => st.peso || 0));
-    pontos.push({ data: s.data, val: best, peso: topPeso });
+    const vol = ex.series.reduce((t, st) => t + (st.peso || 0) * st.reps, 0);
+    pontos.push({ data: s.data, val: vol });
   }
   lineChart(document.getElementById("chart-ex"), pontos.map(p => p.val), pontos.map(p => fmtData(p.data).slice(0,5)), "kg");
 }
