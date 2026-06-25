@@ -106,6 +106,24 @@
   .treino-picker button.selected .sub { color: #d8e6ff; }
   .sugestao { font-size: 0.78rem; color: var(--green); margin-bottom: 10px; }
 
+  .corrida-btn {
+    width: 100%; padding: 12px; border-radius: 12px; margin-bottom: 14px;
+    border: 1px solid var(--border); background: var(--card2);
+    color: var(--text); cursor: pointer; font-size: 0.9rem; font-weight: 600;
+  }
+  .corrida-btn.selected { background: var(--orange); border-color: var(--orange); color: #2a1800; }
+  .dist-picker { display: flex; gap: 8px; margin-bottom: 12px; }
+  .dist-picker button {
+    flex: 1; padding: 12px 4px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--card2);
+    color: var(--text); cursor: pointer; font-size: 0.9rem; font-weight: 600;
+  }
+  .dist-picker button.selected { background: var(--orange); border-color: var(--orange); color: #2a1800; }
+  .time-inputs { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .time-inputs input { width: 80px; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg); color: var(--text); font-size: 1.1rem; text-align: center; }
+  .pace-preview { font-size: 0.85rem; color: var(--orange); margin-bottom: 12px; min-height: 18px; font-weight: 600; }
+
   .exercicio { background: var(--card2); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
   .exercicio .ex-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
   .exercicio .ex-nome { font-weight: 600; font-size: 0.9rem; }
@@ -246,14 +264,28 @@ const TREINOS = {
       { nome: { 1: "Rosca scott", 2: "Rosca martelo", 3: "Rosca scott", 4: "Rosca martelo", 5: "Rosca scott" }, tipo: "isolado", series: 2 },
       { nome: "Abdominal na polia (cable crunch)", tipo: "core", series: 3, alvo: "12–15" },
     ]},
+  D: { nome: "Prevenção & Core (corrida)", aquecimento: "5min bike + mobilidade de tornozelo e quadril", leve: true,
+    exercicios: [
+      { nome: "Elevação de tibial anterior", tipo: "isolado", series: 3, alvo: "15–20 (anti-canelite)" },
+      { nome: "Panturrilha unilateral excêntrica", tipo: "isolado", series: 3, alvo: "12/perna (descida 3s)" },
+      { nome: "Abdução de quadril (glúteo médio)", tipo: "isolado", series: 3, alvo: "15–20" },
+      { nome: "Stiff unilateral c/ halter leve", tipo: "composto", series: 3, alvo: "8–10/perna" },
+      { nome: "Afundo ou step-down controlado", tipo: "composto", series: 3, alvo: "10/perna" },
+      { nome: "Bird dog", tipo: "core", series: 3, alvo: "10/lado" },
+      { nome: "Prancha lateral", tipo: "core", series: 3, alvo: "20–40s/lado", tempo: true },
+    ]},
 };
 
 // ============ ESTADO ============
 const STORAGE_KEY = "treino-tracker-v1";
 let state = load();
 function load() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { sessoes: [] }; }
-  catch { return { sessoes: [] }; }
+  let s;
+  try { s = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; }
+  catch { s = {}; }
+  if (!Array.isArray(s.sessoes)) s.sessoes = [];
+  if (!Array.isArray(s.corridas)) s.corridas = [];
+  return s;
 }
 function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
@@ -261,6 +293,8 @@ let currentTab = "treino";
 let selectedTreino = null;
 let draftSets = {}; // {exNome: [{peso, reps}]}
 let draftDate = hoje();
+const draftCorridaInicial = () => ({ distancia: 5, custom: false, distanciaCustom: "", min: "", seg: "" });
+let draftCorrida = draftCorridaInicial();
 
 function hoje() {
   const d = new Date();
@@ -362,9 +396,17 @@ function ultimaSessaoDoTreino(letra) {
   return list[0] || null;
 }
 function proximoTreinoSugerido() {
-  const ult = state.sessoes.slice().sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id))[0];
+  const ordenadas = state.sessoes.slice().sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id));
+  const ult = ordenadas[0];
   if (!ult) return "A";
-  return { A: "B", B: "C", C: "A" }[ult.treino] || "A";
+  if (ult.treino === "A") {
+    // dia de perna alterna B/D: sugere o oposto da última perna feita
+    const ultPerna = ordenadas.find(s => s.treino === "B" || s.treino === "D");
+    return (ultPerna && ultPerna.treino === "B") ? "D" : "B";
+  }
+  if (ult.treino === "B" || ult.treino === "D") return "C";
+  if (ult.treino === "C") return "A";
+  return "A";
 }
 
 // ============ RENDER ============
@@ -460,15 +502,18 @@ function renderTreino(v) {
   const sugestao = proximoTreinoSugerido();
   let html = `<div class="card">
     <h2>Registrar treino</h2>
-    <div class="sugestao">Sugestão de hoje: <b>Treino ${sugestao}</b> (rotação A→B→C)</div>
+    <div class="sugestao">Sugestão de hoje: <b>Treino ${sugestao}</b> (A → perna → C; a perna alterna B/D)</div>
     <div class="treino-picker">
-      ${["A","B","C"].map(l => `
+      ${["A","B","C","D"].map(l => `
         <button class="${selectedTreino === l ? "selected" : ""}" onclick="selecionarTreino('${l}')">
           Treino ${l}<span class="sub">${TREINOS[l].nome}</span>
         </button>`).join("")}
-    </div>`;
+    </div>
+    <button class="corrida-btn ${selectedTreino === 'corrida' ? 'selected' : ''}" onclick="selecionarCorrida()">🏃 Registrar corrida</button>`;
 
-  if (selectedTreino) {
+  if (selectedTreino === "corrida") {
+    html += renderFormCorrida();
+  } else if (selectedTreino) {
     const t = TREINOS[selectedTreino];
     const b = blocoAtual(draftDate);
     const fase = faseAtual(draftDate);
@@ -508,9 +553,85 @@ function renderTreino(v) {
   }
   html += `</div>`;
   v.innerHTML = html;
+  if (selectedTreino === "corrida") atualizarPace();
 }
 
 function esc(s) { return s.replace(/'/g, "\\'"); }
+
+// ---------- CORRIDA ----------
+function selecionarCorrida() {
+  selectedTreino = "corrida";
+  draftCorrida = draftCorridaInicial();
+  render();
+}
+function setDistancia(d) {
+  if (d === "custom") draftCorrida.custom = true;
+  else { draftCorrida.custom = false; draftCorrida.distancia = d; }
+  render();
+}
+function setCorridaVal(campo, val) { draftCorrida[campo] = val; }
+function mmss(totalSec) {
+  const m = Math.floor(totalSec / 60), s = Math.round(totalSec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+}
+function paceStr(secPorKm) { return mmss(secPorKm); }
+function distAtual() {
+  return draftCorrida.custom ? parseFloat(String(draftCorrida.distanciaCustom).replace(",", ".")) : draftCorrida.distancia;
+}
+function atualizarPace() {
+  const el = document.getElementById("pace-preview");
+  if (!el) return;
+  const dist = distAtual();
+  const t = (parseInt(draftCorrida.min) || 0) * 60 + (parseInt(draftCorrida.seg) || 0);
+  el.textContent = (dist > 0 && t > 0) ? `Ritmo: ${paceStr(t / dist)} /km · ${dist} km em ${mmss(t)}` : "";
+}
+function renderFormCorrida() {
+  const presets = [5, 10];
+  const d = draftCorrida;
+  let h = `<div class="row mb">
+    <label style="font-size:0.8rem;color:var(--muted)">Data:</label>
+    <input type="date" value="${draftDate}" onchange="draftDate=this.value">
+  </div>
+  <h3>Distância</h3>
+  <div class="dist-picker">
+    ${presets.map(p => `<button class="${!d.custom && d.distancia === p ? "selected" : ""}" onclick="setDistancia(${p})">${p} km</button>`).join("")}
+    <button class="${d.custom ? "selected" : ""}" onclick="setDistancia('custom')">Outra</button>
+  </div>`;
+  if (d.custom) {
+    h += `<input type="text" inputmode="decimal" placeholder="km (ex: 7.5)" value="${d.distanciaCustom}"
+      style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);margin-bottom:12px"
+      oninput="setCorridaVal('distanciaCustom',this.value);atualizarPace()">`;
+  }
+  h += `<h3>Tempo</h3>
+    <div class="time-inputs">
+      <input type="text" inputmode="numeric" placeholder="min" value="${d.min}" oninput="setCorridaVal('min',this.value);atualizarPace()">
+      <span style="font-size:1.2rem;color:var(--muted)">:</span>
+      <input type="text" inputmode="numeric" placeholder="seg" value="${d.seg}" oninput="setCorridaVal('seg',this.value);atualizarPace()">
+      <span style="font-size:0.8rem;color:var(--muted)">min : seg</span>
+    </div>
+    <div class="pace-preview" id="pace-preview"></div>
+    <div class="mb"><textarea id="obs-corrida" placeholder="Como foi? (percurso, sensação, clima...)"></textarea></div>
+    <button class="btn-primary" style="background:var(--orange);color:#2a1800" onclick="salvarCorrida()">🏃 Salvar corrida</button>`;
+  return h;
+}
+function salvarCorrida() {
+  const dist = distAtual();
+  const tempoSeg = (parseInt(draftCorrida.min) || 0) * 60 + (parseInt(draftCorrida.seg) || 0);
+  if (!dist || dist <= 0) { alert("Informe a distância."); return; }
+  if (tempoSeg <= 0) { alert("Informe o tempo (minutos e segundos)."); return; }
+  const mesmas = state.corridas.filter(c => Math.abs(c.distancia - dist) < 0.05);
+  const melhorPaceAntes = mesmas.length ? Math.min(...mesmas.map(c => c.tempoSeg / c.distancia)) : null;
+  const paceAgora = tempoSeg / dist;
+  const obs = (document.getElementById("obs-corrida")?.value || "").trim();
+  state.corridas.push({ id: Date.now(), data: draftDate, distancia: dist, tempoSeg, obs });
+  save();
+  selectedTreino = null;
+  draftDate = hoje();
+  draftCorrida = draftCorridaInicial();
+  render();
+  if (melhorPaceAntes && paceAgora < melhorPaceAntes - 0.01) toast(`🏆 Recorde nos ${dist}km! ${paceStr(paceAgora)}/km`);
+  else toast(`🏃 Corrida salva! ${paceStr(paceAgora)}/km`);
+}
 
 function ultimaPerformance(exNome) {
   const sessoes = state.sessoes.slice().sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id));
@@ -590,22 +711,41 @@ function toast(msg) {
 
 // ---------- ABA HISTÓRICO ----------
 function renderHistorico(v) {
-  const sessoes = state.sessoes.slice().sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id));
-  let html = `<div class="card"><h2>Histórico (${sessoes.length} treinos)</h2>`;
-  if (!sessoes.length) html += `<div class="empty">Nenhum treino registrado ainda.<br>Bora começar! 💪</div>`;
-  for (const s of sessoes) {
-    html += `<div class="hist-item">
-      <div class="hist-head" onclick="this.nextElementSibling.classList.toggle('open')">
-        <span class="h-title">Treino ${s.treino} <span style="color:var(--muted);font-weight:400;font-size:0.78rem">· ${TREINOS[s.treino]?.nome || ""}</span></span>
-        <span class="h-date">${diaSemana(s.data)} ${fmtData(s.data)}</span>
-      </div>
-      <div class="hist-body">
-        ${s.exercicios.map(ex => `<div class="h-ex"><b>${ex.nome}</b><br>
-          <span class="h-sets">${ex.series.map(st => `${st.peso || "—"}kg×${st.reps}`).join("  ·  ")}</span></div>`).join("")}
-        ${s.obs ? `<div style="color:var(--orange);margin-top:6px">📝 ${s.obs}</div>` : ""}
-        <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirSessao(${s.id})">Excluir</button>
-      </div>
-    </div>`;
+  const itens = [
+    ...state.sessoes.map(s => ({ tipo: "treino", data: s.data, id: s.id, ref: s })),
+    ...state.corridas.map(c => ({ tipo: "corrida", data: c.data, id: c.id, ref: c })),
+  ].sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id));
+  let html = `<div class="card"><h2>Histórico <span style="font-weight:400;font-size:0.8rem;color:var(--muted)">(${state.sessoes.length} treinos · ${state.corridas.length} corridas)</span></h2>`;
+  if (!itens.length) html += `<div class="empty">Nada registrado ainda.<br>Bora começar! 💪</div>`;
+  for (const it of itens) {
+    if (it.tipo === "treino") {
+      const s = it.ref;
+      html += `<div class="hist-item">
+        <div class="hist-head" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="h-title">Treino ${s.treino} <span style="color:var(--muted);font-weight:400;font-size:0.78rem">· ${TREINOS[s.treino]?.nome || ""}</span></span>
+          <span class="h-date">${diaSemana(s.data)} ${fmtData(s.data)}</span>
+        </div>
+        <div class="hist-body">
+          ${s.exercicios.map(ex => `<div class="h-ex"><b>${ex.nome}</b><br>
+            <span class="h-sets">${ex.series.map(st => `${st.peso || "—"}kg×${st.reps}`).join("  ·  ")}</span></div>`).join("")}
+          ${s.obs ? `<div style="color:var(--orange);margin-top:6px">📝 ${s.obs}</div>` : ""}
+          <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirSessao(${s.id})">Excluir</button>
+        </div>
+      </div>`;
+    } else {
+      const c = it.ref;
+      html += `<div class="hist-item">
+        <div class="hist-head" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="h-title">🏃 Corrida ${c.distancia}km <span style="color:var(--muted);font-weight:400;font-size:0.78rem">· ${mmss(c.tempoSeg)} · ${paceStr(c.tempoSeg / c.distancia)}/km</span></span>
+          <span class="h-date">${diaSemana(c.data)} ${fmtData(c.data)}</span>
+        </div>
+        <div class="hist-body">
+          <div class="h-ex">Distância: <b>${c.distancia} km</b> · Tempo: <b>${mmss(c.tempoSeg)}</b> · Ritmo: <b>${paceStr(c.tempoSeg / c.distancia)}/km</b></div>
+          ${c.obs ? `<div style="color:var(--orange);margin-top:6px">📝 ${c.obs}</div>` : ""}
+          <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirCorrida(${c.id})">Excluir</button>
+        </div>
+      </div>`;
+    }
   }
   html += `</div>`;
   v.innerHTML = html;
@@ -616,11 +756,18 @@ function excluirSessao(id) {
   save();
   render();
 }
+function excluirCorrida(id) {
+  if (!confirm("Excluir esta corrida?")) return;
+  state.corridas = state.corridas.filter(c => c.id !== id);
+  save();
+  render();
+}
 
 // ---------- ABA PROGRESSO ----------
 let exSelecionado = null;
+let paceSelecionado = null;
 function renderProgresso(v) {
-  const todosEx = [...new Set(["A","B","C"].flatMap(l => TREINOS[l].exercicios.flatMap(e => typeof e.nome === "string" ? [e.nome] : Object.values(e.nome))))];
+  const todosEx = [...new Set(["A","B","C","D"].flatMap(l => TREINOS[l].exercicios.flatMap(e => typeof e.nome === "string" ? [e.nome] : Object.values(e.nome))))];
   const comDados = todosEx.filter(nome => state.sessoes.some(s => s.exercicios.some(e => e.nome === nome)));
   if (!exSelecionado && comDados.length) exSelecionado = comDados[0];
 
@@ -652,12 +799,50 @@ function renderProgresso(v) {
     <div class="chart-info">— volume load (Σ peso × reps de todas as séries) · cada ponto = um treino</div></div>`;
   }
 
-  html += `<div class="card"><h3>Frequência semanal (últimas 12 semanas)</h3>
+  // ----- corridas -----
+  const corridas = (state.corridas || []).slice();
+  const distancias = [...new Set(corridas.map(c => c.distancia))].sort((a,b) => a - b);
+  if ((!paceSelecionado || !distancias.includes(paceSelecionado)) && distancias.length)
+    paceSelecionado = distancias.includes(5) ? 5 : distancias[0];
+  const totalKm = corridas.reduce((t,c) => t + c.distancia, 0);
+  const melhorTempo = (d) => { const f = corridas.filter(c => Math.abs(c.distancia - d) < 0.05); return f.length ? Math.min(...f.map(c => c.tempoSeg)) : null; };
+  const b5 = melhorTempo(5), b10 = melhorTempo(10);
+  html += `<div class="card">
+    <h2>🏃 Corridas</h2>
+    <div class="stat-grid">
+      <div class="stat-box"><div class="num">${corridas.length}</div><div class="lbl">corridas</div></div>
+      <div class="stat-box"><div class="num">${totalKm.toFixed(0)}<span style="font-size:0.8rem"> km</span></div><div class="lbl">distância total</div></div>
+      <div class="stat-box"><div class="num">${b5 ? mmss(b5) : "—"}</div><div class="lbl">melhor 5 km</div></div>
+      <div class="stat-box"><div class="num">${b10 ? mmss(b10) : "—"}</div><div class="lbl">melhor 10 km</div></div>
+    </div>`;
+  if (!corridas.length) {
+    html += `<div class="empty">Registre suas corridas pra acompanhar a evolução do ritmo. 🏃</div>`;
+  } else {
+    html += `<div style="margin-top:14px"></div>
+      <select onchange="paceSelecionado=parseFloat(this.value);render()">
+        ${distancias.map(dd => `<option value="${dd}" ${dd === paceSelecionado ? "selected" : ""}>${dd} km</option>`).join("")}
+      </select>
+      <canvas id="chart-pace" height="200"></canvas>
+      <div class="chart-info">— ritmo (min/km) por corrida · quanto mais baixo, mais rápido 🔽</div>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="card"><h3>Frequência semanal de treinos (últimas 12 semanas)</h3>
     <canvas id="chart-freq" height="120"></canvas></div>`;
 
   v.innerHTML = html;
   if (comDados.length) desenharChartExercicio();
+  if (corridas.length) desenharChartPace();
   desenharChartFrequencia();
+}
+
+function desenharChartPace() {
+  const corridas = (state.corridas || []).filter(c => c.distancia === paceSelecionado)
+    .sort((a,b) => a.data.localeCompare(b.data) || (a.id - b.id));
+  if (!corridas.length) return;
+  lineChart(document.getElementById("chart-pace"),
+    corridas.map(c => c.tempoSeg / c.distancia),
+    corridas.map(c => fmtData(c.data).slice(0,5)), "", paceStr);
 }
 
 function desenharChartExercicio() {
@@ -698,9 +883,10 @@ function setupCanvas(canvas) {
   return { ctx, w, h };
 }
 
-function lineChart(canvas, vals, labels, unit) {
+function lineChart(canvas, vals, labels, unit, fmt) {
   const { ctx, w, h } = setupCanvas(canvas);
   if (!vals.length) return;
+  const f = fmt || (v => Math.round(v) + (unit || ""));
   const pad = { l: 40, r: 12, t: 14, b: 24 };
   const min = Math.min(...vals) * 0.95, max = Math.max(...vals) * 1.05 || 1;
   const X = i => pad.l + (vals.length === 1 ? (w-pad.l-pad.r)/2 : i * (w - pad.l - pad.r) / (vals.length - 1));
@@ -710,7 +896,7 @@ function lineChart(canvas, vals, labels, unit) {
   for (let g = 0; g <= 3; g++) {
     const v = min + (max - min) * g / 3, y = Y(v);
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(w - pad.r, y); ctx.stroke();
-    ctx.fillText(Math.round(v) + (unit || ""), 2, y + 3);
+    ctx.fillText(f(v), 2, y + 3);
   }
   // linha
   ctx.strokeStyle = "#4f8ef7"; ctx.lineWidth = 2; ctx.beginPath();
@@ -724,7 +910,7 @@ function lineChart(canvas, vals, labels, unit) {
   labels.forEach((lb, i) => { if (i % step === 0 || i === vals.length-1) ctx.fillText(lb, X(i) - 12, h - 6); });
   // último valor
   ctx.fillStyle = "#3ecf8e"; ctx.font = "bold 11px Segoe UI";
-  ctx.fillText(Math.round(vals[vals.length-1]) + (unit||""), X(vals.length-1) - 14, Y(vals[vals.length-1]) - 8);
+  ctx.fillText(f(vals[vals.length-1]), X(vals.length-1) - 14, Y(vals[vals.length-1]) - 8);
 }
 
 function barChart(canvas, vals, labels, meta) {
@@ -763,7 +949,7 @@ function renderDados(v) {
   <div class="card">
     <h3>Sobre o plano</h3>
     <p style="font-size:0.82rem;color:var(--muted)">
-      Periodização jun–dez 2026 · 3x/semana (A/B/C) + corrida 5km e 10km.<br><br>
+      Periodização jun–dez 2026 · 3x/semana (A → perna → C; a perna alterna B força / D prevenção) + corridas de 5 e 10 km registradas à parte.<br><br>
       <b style="color:var(--text)">Progressão dupla:</b> bateu o topo da faixa de reps em todas as séries → sobe a carga e volta pro piso da faixa.<br><br>
       <b style="color:var(--text)">Lembretes:</b> creatina 5g todo dia · proteína 160–180g/dia · qualquer dor irradiada na lombar = parar o exercício.</p>
   </div>`;
@@ -783,6 +969,7 @@ function importar(input) {
     try {
       const data = JSON.parse(reader.result);
       if (!Array.isArray(data.sessoes)) throw new Error();
+      if (!Array.isArray(data.corridas)) data.corridas = [];
       state = data;
       save();
       render();
@@ -794,7 +981,7 @@ function importar(input) {
 function resetar() {
   if (!confirm("Apagar TODOS os dados? Essa ação não pode ser desfeita.")) return;
   if (!confirm("Tem certeza mesmo? Exportou o backup?")) return;
-  state = { sessoes: [] };
+  state = { sessoes: [], corridas: [] };
   save();
   render();
 }
