@@ -167,6 +167,25 @@
     background: var(--card2); color: var(--text); font-size: 0.9rem; margin-bottom: 12px;
   }
 
+  .cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .cal-head button { background: var(--card2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 1rem; }
+  .cal-title { font-weight: 700; font-size: 1rem; text-transform: capitalize; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-wd { text-align: center; font-size: 0.62rem; color: var(--muted); padding: 2px 0; text-transform: uppercase; letter-spacing: 0.3px; }
+  .cal-cell { aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid var(--border); padding: 3px;
+    display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
+  .cal-cell.empty { background: transparent !important; border: none; cursor: default; }
+  .cal-cell .dnum { font-size: 0.7rem; color: var(--muted); font-weight: 600; }
+  .cal-cell.hoje { border-color: #fff; border-width: 2px; padding: 2px; }
+  .cal-cell.sel { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .cal-chip { font-size: 0.58rem; font-weight: 700; border-radius: 4px; padding: 1px 3px; line-height: 1.25; }
+  .cal-chip.treino { background: rgba(79,142,247,0.3); color: #cfe0ff; }
+  .cal-chip.corrida { background: rgba(255,159,67,0.25); color: #ffd9a8; }
+  .cal-legend { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 14px; font-size: 0.7rem; color: var(--muted); }
+  .cal-legend .lg { display: flex; align-items: center; gap: 5px; }
+  .cal-legend .sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
   .hist-item { border-bottom: 1px solid var(--border); padding: 12px 0; }
   .hist-item:last-child { border-bottom: none; }
   .hist-head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
@@ -709,46 +728,101 @@ function toast(msg) {
   setTimeout(() => t.remove(), 3000);
 }
 
-// ---------- ABA HISTÓRICO ----------
+// ---------- ABA HISTÓRICO (calendário) ----------
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+const FASES_COR = [
+  { nome: "Base", cor: "#4f8ef7" },
+  { nome: "Hipertrofia I", cor: "#3ecf8e" },
+  { nome: "Força-Hip.", cor: "#a78bfa" },
+  { nome: "Hipertrofia II", cor: "#ff9f43" },
+  { nome: "Polimento", cor: "#2dd4bf" },
+  { nome: "Deload", cor: "#6b7280" },
+];
+let calAno, calMesNum, diaSelecionado = null;
+(function initCal() { const d = new Date(); calAno = d.getFullYear(); calMesNum = d.getMonth(); })();
+function hexRgba(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function corBloco(iso) {
+  const b = blocoAtual(iso);
+  if (!b) return null;
+  if (b.nome === "DELOAD") return { cor: "#6b7280", nome: "Deload" };
+  const map = { 1:"#4f8ef7", 2:"#3ecf8e", 3:"#a78bfa", 4:"#ff9f43", 5:"#2dd4bf" };
+  return { cor: map[b.fase] || "#4f8ef7", nome: b.nome };
+}
+function mudarMes(delta) {
+  calMesNum += delta;
+  if (calMesNum < 0) { calMesNum = 11; calAno--; }
+  else if (calMesNum > 11) { calMesNum = 0; calAno++; }
+  diaSelecionado = null; render();
+}
+function irHojeCal() { const d = new Date(); calAno = d.getFullYear(); calMesNum = d.getMonth(); diaSelecionado = hoje(); render(); }
+function selDia(iso) { diaSelecionado = (diaSelecionado === iso) ? null : iso; render(); }
+
 function renderHistorico(v) {
-  const itens = [
-    ...state.sessoes.map(s => ({ tipo: "treino", data: s.data, id: s.id, ref: s })),
-    ...state.corridas.map(c => ({ tipo: "corrida", data: c.data, id: c.id, ref: c })),
-  ].sort((a,b) => b.data.localeCompare(a.data) || (b.id - a.id));
-  let html = `<div class="card"><h2>Histórico <span style="font-weight:400;font-size:0.8rem;color:var(--muted)">(${state.sessoes.length} treinos · ${state.corridas.length} corridas)</span></h2>`;
-  if (!itens.length) html += `<div class="empty">Nada registrado ainda.<br>Bora começar! 💪</div>`;
-  for (const it of itens) {
-    if (it.tipo === "treino") {
-      const s = it.ref;
-      html += `<div class="hist-item">
-        <div class="hist-head" onclick="this.nextElementSibling.classList.toggle('open')">
-          <span class="h-title">Treino ${s.treino} <span style="color:var(--muted);font-weight:400;font-size:0.78rem">· ${TREINOS[s.treino]?.nome || ""}</span></span>
-          <span class="h-date">${diaSemana(s.data)} ${fmtData(s.data)}</span>
-        </div>
-        <div class="hist-body">
-          ${s.exercicios.map(ex => `<div class="h-ex"><b>${ex.nome}</b><br>
-            <span class="h-sets">${ex.series.map(st => `${st.peso || "—"}kg×${st.reps}`).join("  ·  ")}</span></div>`).join("")}
-          ${s.obs ? `<div style="color:var(--orange);margin-top:6px">📝 ${s.obs}</div>` : ""}
-          <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirSessao(${s.id})">Excluir</button>
-        </div>
-      </div>`;
-    } else {
-      const c = it.ref;
-      html += `<div class="hist-item">
-        <div class="hist-head" onclick="this.nextElementSibling.classList.toggle('open')">
-          <span class="h-title">🏃 Corrida ${c.distancia}km <span style="color:var(--muted);font-weight:400;font-size:0.78rem">· ${mmss(c.tempoSeg)} · ${paceStr(c.tempoSeg / c.distancia)}/km</span></span>
-          <span class="h-date">${diaSemana(c.data)} ${fmtData(c.data)}</span>
-        </div>
-        <div class="hist-body">
-          <div class="h-ex">Distância: <b>${c.distancia} km</b> · Tempo: <b>${mmss(c.tempoSeg)}</b> · Ritmo: <b>${paceStr(c.tempoSeg / c.distancia)}/km</b></div>
-          ${c.obs ? `<div style="color:var(--orange);margin-top:6px">📝 ${c.obs}</div>` : ""}
-          <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirCorrida(${c.id})">Excluir</button>
-        </div>
-      </div>`;
-    }
+  const pad = n => String(n).padStart(2, "0");
+  const diasNoMes = new Date(calAno, calMesNum + 1, 0).getDate();
+  const primeiroWd = (new Date(calAno, calMesNum, 1).getDay() + 6) % 7; // Seg=0
+  const wds = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+
+  let html = `<div class="card">
+    <div class="cal-head">
+      <button onclick="mudarMes(-1)">◀</button>
+      <span class="cal-title">${MESES[calMesNum]} de ${calAno}</span>
+      <button onclick="mudarMes(1)">▶</button>
+    </div>
+    <div style="text-align:center;margin-bottom:10px"><button class="btn-secondary" style="padding:6px 14px" onclick="irHojeCal()">Hoje</button></div>
+    <div class="cal-grid">
+      ${wds.map(w => `<div class="cal-wd">${w}</div>`).join("")}`;
+
+  for (let i = 0; i < primeiroWd; i++) html += `<div class="cal-cell empty"></div>`;
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    const iso = `${calAno}-${pad(calMesNum+1)}-${pad(dia)}`;
+    const cb = corBloco(iso);
+    const bg = cb ? hexRgba(cb.cor, 0.16) : "transparent";
+    const treinos = state.sessoes.filter(s => s.data === iso);
+    const corridas = state.corridas.filter(c => c.data === iso);
+    const chips = treinos.map(s => `<span class="cal-chip treino">${s.treino}</span>`).join("")
+      + corridas.map(c => `<span class="cal-chip corrida">🏃${c.distancia}</span>`).join("");
+    const cls = `cal-cell${iso === hoje() ? " hoje" : ""}${iso === diaSelecionado ? " sel" : ""}`;
+    html += `<div class="${cls}" style="background:${bg}" onclick="selDia('${iso}')">
+      <span class="dnum">${dia}</span>${chips}</div>`;
   }
+  const totalCells = primeiroWd + diasNoMes;
+  for (let i = totalCells; i % 7 !== 0; i++) html += `<div class="cal-cell empty"></div>`;
   html += `</div>`;
+
+  html += `<div class="cal-legend">${FASES_COR.map(f => `<span class="lg"><span class="sw" style="background:${hexRgba(f.cor,0.45)};border:1px solid ${f.cor}"></span>${f.nome}</span>`).join("")}</div>`;
+  html += `</div>`;
+
+  if (diaSelecionado) html += renderDetalheDia(diaSelecionado);
   v.innerHTML = html;
+}
+
+function renderDetalheDia(iso) {
+  const treinos = state.sessoes.filter(s => s.data === iso);
+  const corridas = state.corridas.filter(c => c.data === iso);
+  const cb = corBloco(iso);
+  let html = `<div class="card">
+    <h3 style="text-transform:capitalize">${diaSemana(iso)} ${fmtData(iso)} ${cb ? `<span style="font-weight:400;font-size:0.78rem;color:${cb.cor}">· ${cb.nome}</span>` : ""}</h3>`;
+  if (!treinos.length && !corridas.length) {
+    return html + `<div class="empty" style="padding:14px">Nenhum registro neste dia.</div></div>`;
+  }
+  for (const s of treinos) {
+    html += `<div class="hist-item">
+      <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px">Treino ${s.treino} <span style="color:var(--muted);font-weight:400;font-size:0.78rem">· ${TREINOS[s.treino]?.nome || ""}</span></div>
+      ${s.exercicios.map(ex => `<div style="margin-bottom:6px;font-size:0.82rem"><b style="color:var(--accent)">${ex.nome}</b><br><span style="color:var(--muted)">${ex.series.map(st => `${st.peso || "—"}kg×${st.reps}`).join("  ·  ")}</span></div>`).join("")}
+      ${s.obs ? `<div style="color:var(--orange);margin-top:6px;font-size:0.82rem">📝 ${s.obs}</div>` : ""}
+      <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirSessao(${s.id})">Excluir</button>
+    </div>`;
+  }
+  for (const c of corridas) {
+    html += `<div class="hist-item">
+      <div style="font-weight:600;font-size:0.9rem;margin-bottom:6px">🏃 Corrida ${c.distancia} km</div>
+      <div style="font-size:0.82rem">Tempo: <b>${mmss(c.tempoSeg)}</b> · Ritmo: <b>${paceStr(c.tempoSeg / c.distancia)}/km</b></div>
+      ${c.obs ? `<div style="color:var(--orange);margin-top:6px;font-size:0.82rem">📝 ${c.obs}</div>` : ""}
+      <button class="btn-secondary btn-danger" style="margin-top:8px" onclick="excluirCorrida(${c.id})">Excluir</button>
+    </div>`;
+  }
+  return html + `</div>`;
 }
 function excluirSessao(id) {
   if (!confirm("Excluir este treino?")) return;
