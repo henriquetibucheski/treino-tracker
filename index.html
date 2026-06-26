@@ -243,14 +243,14 @@
 // ============ PLANO ============
 // fase = qual variação de exercícios usar (deloads mantêm os exercícios do bloco anterior)
 const BLOCOS = [
-  { nome: "Bloco 1 — Base", fase: 1, inicio: "2026-06-09", fim: "2026-07-05", composto: "8–10 reps", isolado: "12–15 reps", rir: "RIR 2–3", obs: "Técnica e consistência. Não vá à falha ainda." },
-  { nome: "Bloco 2 — Hipertrofia I", fase: 2, inicio: "2026-07-06", fim: "2026-08-09", composto: "8–12 reps", isolado: "10–15 reps", rir: "RIR 1–2", obs: "Acúmulo de volume. Progressão dupla nas cargas." },
-  { nome: "DELOAD", fase: 2, inicio: "2026-08-10", fim: "2026-08-16", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve. Recuperar pra atacar o próximo bloco." },
-  { nome: "Bloco 3 — Força-Hipertrofia", fase: 3, inicio: "2026-08-17", fim: "2026-09-20", composto: "5–8 reps", isolado: "8–12 reps", rir: "RIR 1–2", obs: "Cargas mais pesadas nos compostos. Descansos maiores (2–3min)." },
-  { nome: "DELOAD", fase: 3, inicio: "2026-09-21", fim: "2026-09-27", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve." },
-  { nome: "Bloco 4 — Hipertrofia II", fase: 4, inicio: "2026-09-28", fim: "2026-11-01", composto: "6–10 reps", isolado: "10–15 reps", rir: "RIR 0–1", obs: "Intensidade máxima. Última série dos isolados = drop-set." },
-  { nome: "DELOAD", fase: 4, inicio: "2026-11-02", fim: "2026-11-08", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve." },
-  { nome: "Bloco 5 — Polimento 🏖️", fase: 5, inicio: "2026-11-09", fim: "2026-12-20", composto: "8–12 reps", isolado: "12–20 reps", rir: "RIR 0–1", obs: "Descansos curtos (45–60s nos isolados). Leve déficit calórico. Reta final!" },
+  { nome: "Bloco 1 — Base", fase: 1, inicio: "2026-06-29", fim: "2026-07-19", composto: "8–10 reps", isolado: "12–15 reps", rir: "RIR 2–3", obs: "Técnica e consistência. Não vá à falha ainda." },
+  { nome: "Bloco 2 — Hipertrofia I", fase: 2, inicio: "2026-07-20", fim: "2026-08-23", composto: "8–12 reps", isolado: "10–15 reps", rir: "RIR 1–2", obs: "Acúmulo de volume. Progressão dupla nas cargas." },
+  { nome: "DELOAD", fase: 2, inicio: "2026-08-24", fim: "2026-08-30", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve. Recuperar pra atacar o próximo bloco." },
+  { nome: "Bloco 3 — Força-Hipertrofia", fase: 3, inicio: "2026-08-31", fim: "2026-10-04", composto: "5–8 reps", isolado: "8–12 reps", rir: "RIR 1–2", obs: "Cargas mais pesadas nos compostos. Descansos maiores (2–3min)." },
+  { nome: "DELOAD", fase: 3, inicio: "2026-10-05", fim: "2026-10-11", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve." },
+  { nome: "Bloco 4 — Hipertrofia II", fase: 4, inicio: "2026-10-12", fim: "2026-11-15", composto: "6–10 reps", isolado: "10–15 reps", rir: "RIR 0–1", obs: "Intensidade máxima. Última série dos isolados = drop-set." },
+  { nome: "DELOAD", fase: 4, inicio: "2026-11-16", fim: "2026-11-22", composto: "2 séries, ~80% carga", isolado: "2 séries", rir: "RIR 3–4", obs: "Semana leve." },
+  { nome: "Bloco 5 — Polimento 🏖️", fase: 5, inicio: "2026-11-23", fim: "2026-12-20", composto: "8–12 reps", isolado: "12–20 reps", rir: "RIR 0–1", obs: "Descansos curtos (45–60s nos isolados). Leve déficit calórico. Reta final!" },
 ];
 
 // "nome" pode ser uma string (exercício fixo o ano todo) ou um mapa {fase: nome}
@@ -459,17 +459,26 @@ function renderStreakBanner() {
 function renderBlocoBanner() {
   const b = blocoAtual();
   const el = document.getElementById("bloco-banner");
+  const antesDoInicio = hoje() < BLOCOS[0].inicio;
   let html = "";
-  // aviso de virada de bloco (fica até o usuário dispensar)
+  // aviso de virada de bloco (fica até o usuário dispensar) — só depois que o plano começa
   const nomeAtual = b ? b.nome : "Manutenção 🏖️";
-  if (state.blocoVisto !== nomeAtual) {
+  if (!antesDoInicio && state.blocoVisto !== nomeAtual) {
     html += `<div class="novo-bloco">
       <b>🔄 Bloco novo: ${nomeAtual}</b>
       <div class="meta">${b ? b.obs + " Exercícios e alvos de reps já atualizados na tela de treino." : "Plano concluído! Agora é manter o que foi construído."}</div>
       <button class="btn-secondary" style="margin-top:8px" onclick="dismissNovoBloco('${esc(nomeAtual)}')">Entendi 💪</button>
     </div>`;
   }
-  if (b) {
+  if (antesDoInicio) {
+    const pb = BLOCOS[0];
+    html += `<div class="bloco-banner">
+      <b>Plano começa em ${fmtData(pb.inicio)}</b> — segunda-feira 💪
+      <div class="meta">Primeiro: ${pb.nome} · Compostos: ${pb.composto} · Isolados: ${pb.isolado} · ${pb.rir}</div>
+      <div class="meta">${pb.obs}</div>
+      ${timelineHtml()}
+    </div>`;
+  } else if (b) {
     html += `<div class="bloco-banner">
       <b>${b.nome}</b> · até ${fmtData(b.fim)}
       <div class="meta">Compostos: ${b.composto} · Isolados: ${b.isolado} · ${b.rir}</div>
