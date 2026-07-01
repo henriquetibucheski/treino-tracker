@@ -139,11 +139,11 @@
   .serie-row .x { color: var(--muted); }
   .serie-row .last { font-size: 0.7rem; color: var(--muted); flex: 1; text-align: right; }
   .serie-row .rm-set { background:none; border:none; color: var(--muted); cursor:pointer; font-size: 0.9rem; padding: 2px 6px; }
-  .serie-row .timer-disp { font-size: 0.74rem; min-width: 34px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .timer-disp.quase { color: var(--orange); font-weight: 700; }
+  .serie-row .timer-disp { font-size: 1rem; font-weight: 600; min-width: 46px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .timer-disp.quase { color: var(--orange); font-weight: 800; }
   .timer-disp.zerado { color: var(--red); font-weight: 800; }
-  .serie-row .timer-btn { background: none; border: 1px solid var(--border); border-radius: 6px;
-    color: var(--muted); cursor: pointer; font-size: 0.8rem; padding: 3px 7px; }
+  .serie-row .timer-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--muted); cursor: pointer; font-size: 0.95rem; padding: 6px 10px; }
 
   .desc-picker { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .desc-picker button { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
@@ -579,6 +579,7 @@ function renderTreino(v) {
       sets.forEach((set, i) => {
         const lastTxt = ultima && ultima[i] ? `ant: ${ultima[i].peso}kg×${ultima[i].reps}` : (ultima && ultima[0] ? `ant: ${ultima[0].peso}kg×${ultima[0].reps}` : "");
         html += `<div class="serie-row">
+          <button class="rm-set" onclick="removeSet('${esc(nome)}',${i})">✕</button>
           <span class="s-num">${i+1}.</span>
           <input type="text" inputmode="decimal" placeholder="kg" value="${set.peso ?? ""}"
             onchange="setVal('${esc(nome)}',${i},'peso',this.value)">
@@ -588,7 +589,6 @@ function renderTreino(v) {
           <span class="last">${lastTxt}</span>
           <span class="timer-disp" data-tkey="${nome}|${i}"></span>
           <button class="timer-btn" onclick="iniciarTimer('${esc(nome)}',${i})">⏱</button>
-          <button class="rm-set" onclick="removeSet('${esc(nome)}',${i})">✕</button>
         </div>`;
       });
       html += `<button class="add-set" onclick="addSet('${esc(nome)}')">+ série</button></div>`;
