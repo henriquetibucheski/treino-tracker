@@ -128,22 +128,24 @@
   .exercicio .ex-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
   .exercicio .ex-nome { font-weight: 600; font-size: 0.9rem; }
   .exercicio .ex-alvo { font-size: 0.72rem; color: var(--muted); }
-  .serie-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-  .serie-row .s-num { width: 22px; color: var(--muted); font-size: 0.78rem; }
+  .serie-row { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
+  .serie-row .s-num { color: var(--muted); font-size: 0.78rem; flex-shrink: 0; }
   .serie-row input {
-    width: 70px; padding: 8px; border-radius: 8px;
+    width: 58px; padding: 8px 6px; border-radius: 8px;
     border: 1px solid var(--border); background: var(--bg);
     color: var(--text); font-size: 0.95rem; text-align: center;
   }
   .serie-row input:focus { outline: none; border-color: var(--accent); }
   .serie-row .x { color: var(--muted); }
-  .serie-row .last { font-size: 0.7rem; color: var(--muted); flex: 1; text-align: right; }
-  .serie-row .rm-set { background:none; border:none; color: var(--muted); cursor:pointer; font-size: 0.9rem; padding: 2px 6px; }
-  .serie-row .timer-disp { font-size: 1rem; font-weight: 600; min-width: 46px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .timer-disp.quase { color: var(--orange); font-weight: 800; }
-  .timer-disp.zerado { color: var(--red); font-weight: 800; }
+  .serie-row .last { font-size: 0.7rem; color: var(--muted); flex: 1; text-align: right;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .serie-row .rm-set { background:none; border:none; color: var(--muted); cursor:pointer; font-size: 0.9rem; padding: 2px 3px; flex-shrink: 0; }
   .serie-row .timer-btn { background: none; border: 1px solid var(--border); border-radius: 8px;
-    color: var(--muted); cursor: pointer; font-size: 0.95rem; padding: 6px 10px; }
+    color: var(--muted); cursor: pointer; font-size: 0.95rem; padding: 6px 0;
+    width: 52px; flex-shrink: 0; text-align: center; font-variant-numeric: tabular-nums; }
+  .timer-btn.rodando { color: var(--text); font-weight: 700; border-color: var(--accent); }
+  .timer-btn.quase { color: var(--orange); font-weight: 800; border-color: var(--orange); }
+  .timer-btn.zerado { color: var(--red); font-weight: 800; border-color: var(--red); }
 
   .desc-picker { display: flex; gap: 6px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
   .desc-picker button { padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
@@ -577,7 +579,7 @@ function renderTreino(v) {
           <span class="ex-alvo">${alvo}</span>
         </div>`;
       sets.forEach((set, i) => {
-        const lastTxt = ultima && ultima[i] ? `ant: ${ultima[i].peso}kg×${ultima[i].reps}` : (ultima && ultima[0] ? `ant: ${ultima[0].peso}kg×${ultima[0].reps}` : "");
+        const lastTxt = ultima && ultima[i] ? `↺ ${ultima[i].peso}×${ultima[i].reps}` : (ultima && ultima[0] ? `↺ ${ultima[0].peso}×${ultima[0].reps}` : "");
         html += `<div class="serie-row">
           <button class="rm-set" onclick="removeSet('${esc(nome)}',${i})">✕</button>
           <span class="s-num">${i+1}.</span>
@@ -587,8 +589,7 @@ function renderTreino(v) {
           <input type="text" inputmode="numeric" placeholder="${ex.tempo ? "seg" : "reps"}" value="${set.reps ?? ""}"
             onchange="setVal('${esc(nome)}',${i},'reps',this.value)">
           <span class="last">${lastTxt}</span>
-          <span class="timer-disp" data-tkey="${nome}|${i}"></span>
-          <button class="timer-btn" onclick="iniciarTimer('${esc(nome)}',${i})">⏱</button>
+          <button class="timer-btn" data-tkey="${nome}|${i}" onclick="iniciarTimer('${esc(nome)}',${i})">⏱</button>
         </div>`;
       });
       html += `<button class="add-set" onclick="addSet('${esc(nome)}')">+ série</button></div>`;
@@ -733,18 +734,18 @@ function iniciarTimer(exNome, i) {
   atualizarTimers();
 }
 function atualizarTimers() {
-  document.querySelectorAll(".timer-disp").forEach(el => {
+  document.querySelectorAll(".timer-btn").forEach(el => {
     if (!timerAtivo || el.dataset.tkey !== timerAtivo.key) {
-      el.textContent = ""; el.className = "timer-disp"; return;
+      el.textContent = "⏱"; el.className = "timer-btn"; return;
     }
     const resta = Math.ceil((timerAtivo.fim - Date.now()) / 1000);
     if (resta <= 0) {
       el.textContent = "0:00";
-      el.className = "timer-disp zerado";
+      el.className = "timer-btn zerado";
       if (timerTick) { clearInterval(timerTick); timerTick = null; } // nada mais a atualizar
     } else {
       el.textContent = mmss(resta);
-      el.className = "timer-disp" + (resta <= 10 ? " quase" : "");
+      el.className = "timer-btn " + (resta <= 10 ? "quase" : "rodando");
     }
   });
 }
