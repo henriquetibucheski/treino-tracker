@@ -327,6 +327,39 @@ let draftSets = {}; // {exNome: [{peso, reps}]}
 let draftDate = hoje();
 const draftCorridaInicial = () => ({ distancia: 5, custom: false, distanciaCustom: "", min: "", seg: "" });
 let draftCorrida = draftCorridaInicial();
+let draftObs = "";
+let draftObsCorrida = "";
+
+// ---------- RASCUNHO AUTOMÁTICO ----------
+// Cada valor digitado é persistido na hora; refresh/fechar não perde nada.
+// "Salvar treino/corrida" registra de vez e descarta o rascunho.
+const DRAFT_KEY = "treino-tracker-draft-v1";
+function salvarRascunho() {
+  if (!selectedTreino) { localStorage.removeItem(DRAFT_KEY); return; }
+  const d = { treino: selectedTreino, data: draftDate, salvoEm: Date.now() };
+  if (selectedTreino === "corrida") { d.corrida = draftCorrida; d.obs = draftObsCorrida; }
+  else { d.sets = draftSets; d.obs = draftObs; }
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+}
+function limparRascunho() {
+  localStorage.removeItem(DRAFT_KEY);
+  draftObs = ""; draftObsCorrida = "";
+}
+function restaurarRascunho() {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch { return false; }
+  if (!d || !d.treino) return false;
+  selectedTreino = d.treino;
+  draftDate = d.data || hoje();
+  if (d.treino === "corrida") {
+    draftCorrida = d.corrida || draftCorridaInicial();
+    draftObsCorrida = d.obs || "";
+  } else {
+    draftSets = d.sets || {};
+    draftObs = d.obs || "";
+  }
+  return true;
+}
 
 function hoje() {
   const d = new Date();
@@ -594,11 +627,13 @@ function renderTreino(v) {
       });
       html += `<button class="add-set" onclick="addSet('${esc(nome)}')">+ série</button></div>`;
     }
-    html += `<div class="mb"><textarea id="obs-treino" placeholder="Observações (dores, energia, ajustes...)"></textarea></div>
+    html += `<div class="mb"><textarea id="obs-treino" placeholder="Observações (dores, energia, ajustes...)" oninput="draftObs=this.value;salvarRascunho()"></textarea></div>
       <button class="btn-primary" onclick="salvarSessao()">✅ Salvar treino</button>`;
   }
   html += `</div>`;
   v.innerHTML = html;
+  const ta = document.getElementById("obs-treino"); if (ta) ta.value = draftObs;
+  const tc = document.getElementById("obs-corrida"); if (tc) tc.value = draftObsCorrida;
   if (selectedTreino === "corrida") atualizarPace();
   else if (selectedTreino) atualizarTimers(); // repinta o timer após re-render
 }
@@ -609,14 +644,17 @@ function esc(s) { return s.replace(/'/g, "\\'"); }
 function selecionarCorrida() {
   selectedTreino = "corrida";
   draftCorrida = draftCorridaInicial();
+  draftObsCorrida = "";
+  salvarRascunho();
   render();
 }
 function setDistancia(d) {
   if (d === "custom") draftCorrida.custom = true;
   else { draftCorrida.custom = false; draftCorrida.distancia = d; }
+  salvarRascunho();
   render();
 }
-function setCorridaVal(campo, val) { draftCorrida[campo] = val; }
+function setCorridaVal(campo, val) { draftCorrida[campo] = val; salvarRascunho(); }
 function mmss(totalSec) {
   const m = Math.floor(totalSec / 60), s = Math.round(totalSec % 60);
   return m + ":" + String(s).padStart(2, "0");
@@ -657,7 +695,7 @@ function renderFormCorrida() {
       <span style="font-size:0.8rem;color:var(--muted)">min : seg</span>
     </div>
     <div class="pace-preview" id="pace-preview"></div>
-    <div class="mb"><textarea id="obs-corrida" placeholder="Como foi? (percurso, sensação, clima...)"></textarea></div>
+    <div class="mb"><textarea id="obs-corrida" placeholder="Como foi? (percurso, sensação, clima...)" oninput="draftObsCorrida=this.value;salvarRascunho()"></textarea></div>
     <button class="btn-primary" style="background:var(--orange);color:#2a1800" onclick="salvarCorrida()">🏃 Salvar corrida</button>`;
   return h;
 }
@@ -672,6 +710,7 @@ function salvarCorrida() {
   const obs = (document.getElementById("obs-corrida")?.value || "").trim();
   state.corridas.push({ id: Date.now(), data: draftDate, distancia: dist, tempoSeg, obs });
   save();
+  limparRascunho();
   selectedTreino = null;
   draftDate = hoje();
   draftCorrida = draftCorridaInicial();
@@ -701,20 +740,25 @@ function selecionarTreino(letra) {
       return { peso: ref ? ref.peso : "", reps: "" };
     });
   }
+  draftObs = "";
+  salvarRascunho();
   render();
 }
 function setVal(exNome, i, campo, val) {
   val = String(val).replace(",", ".").trim();
   draftSets[exNome][i][campo] = val === "" ? "" : parseFloat(val);
+  salvarRascunho();
 }
 function addSet(exNome) {
   const sets = draftSets[exNome];
   const last = sets[sets.length-1];
   sets.push({ peso: last ? last.peso : "", reps: "" });
+  salvarRascunho();
   render();
 }
 function removeSet(exNome, i) {
   draftSets[exNome].splice(i, 1);
+  salvarRascunho();
   render();
 }
 
@@ -777,6 +821,7 @@ function salvarSessao() {
   state.sessoes.push({ id: Date.now(), data: draftDate, treino: selectedTreino, exercicios, obs });
   save();
   limparTimer();
+  limparRascunho();
   selectedTreino = null;
   draftSets = {};
   draftDate = hoje();
@@ -1130,7 +1175,9 @@ document.querySelectorAll("nav button").forEach(b => {
   b.addEventListener("click", () => { currentTab = b.dataset.tab; render(); });
 });
 window.addEventListener("resize", () => { if (currentTab === "progresso") render(); });
+const rascunhoRestaurado = restaurarRascunho();
 render();
+if (rascunhoRestaurado) toast("📝 Rascunho recuperado — continua de onde parou");
 
 // PWA: service worker para funcionar offline na academia
 if ("serviceWorker" in navigator && location.protocol === "https:") {
