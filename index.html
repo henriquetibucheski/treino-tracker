@@ -125,9 +125,14 @@
   .pace-preview { font-size: 0.85rem; color: var(--orange); margin-bottom: 12px; min-height: 18px; font-weight: 600; }
 
   .exercicio { background: var(--card2); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
-  .exercicio .ex-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-  .exercicio .ex-nome { font-weight: 600; font-size: 0.9rem; }
-  .exercicio .ex-alvo { font-size: 0.72rem; color: var(--muted); }
+  .exercicio .ex-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .exercicio .ex-alvo { font-size: 0.72rem; color: var(--muted); flex-shrink: 0; }
+  .ex-sel-wrap { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+  .ex-select { appearance: none; -webkit-appearance: none; width: auto; max-width: 100%; min-width: 0;
+    background: transparent; border: none; border-radius: 0; margin: 0; padding: 0;
+    color: var(--text); font-weight: 600; font-size: 0.9rem; font-family: inherit;
+    text-overflow: ellipsis; white-space: nowrap; overflow: hidden; cursor: pointer; }
+  .ex-caret { color: var(--muted); font-size: 0.65rem; flex-shrink: 0; }
   .serie-row { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
   .serie-row .s-num { color: var(--muted); font-size: 0.78rem; flex-shrink: 0; }
   .serie-row input {
@@ -329,6 +334,7 @@ const draftCorridaInicial = () => ({ distancia: 5, custom: false, distanciaCusto
 let draftCorrida = draftCorridaInicial();
 let draftObs = "";
 let draftObsCorrida = "";
+let draftEscolhas = {}; // {slotIdx: nome} — troca pontual de exercício na ficha do dia
 
 // ---------- RASCUNHO AUTOMÁTICO ----------
 // Cada valor digitado é persistido na hora; refresh/fechar não perde nada.
@@ -338,12 +344,13 @@ function salvarRascunho() {
   if (!selectedTreino) { localStorage.removeItem(DRAFT_KEY); return; }
   const d = { treino: selectedTreino, data: draftDate, salvoEm: Date.now() };
   if (selectedTreino === "corrida") { d.corrida = draftCorrida; d.obs = draftObsCorrida; }
-  else { d.sets = draftSets; d.obs = draftObs; }
+  else { d.sets = draftSets; d.obs = draftObs; d.escolhas = draftEscolhas; }
   localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
 }
 function limparRascunho() {
   localStorage.removeItem(DRAFT_KEY);
   draftObs = ""; draftObsCorrida = "";
+  draftEscolhas = {};
 }
 function restaurarRascunho() {
   let d;
@@ -357,6 +364,7 @@ function restaurarRascunho() {
   } else {
     draftSets = d.sets || {};
     draftObs = d.obs || "";
+    draftEscolhas = d.escolhas || {};
   }
   return true;
 }
@@ -387,6 +395,17 @@ function faseAtual(dataIso) {
 }
 function nomeEx(ex, fase) {
   return typeof ex.nome === "string" ? ex.nome : (ex.nome[fase] || ex.nome[1]);
+}
+function variacoesDoSlot(ex) {
+  return typeof ex.nome === "string" ? [ex.nome] : [...new Set(Object.values(ex.nome))];
+}
+function catalogoExercicios() {
+  const nomes = [];
+  for (const l of ["A", "B", "C", "D"]) for (const e of TREINOS[l].exercicios) nomes.push(...variacoesDoSlot(e));
+  return [...new Set(nomes)].sort((a, b) => a.localeCompare(b));
+}
+function nomeSlot(letra, idx, fase) {
+  return draftEscolhas[idx] || nomeEx(TREINOS[letra].exercicios[idx], fase);
 }
 function alvoEx(ex, fase) {
   if (!ex.alvo) return null;
@@ -601,14 +620,24 @@ function renderTreino(v) {
     </div>
     <div style="font-size:0.78rem;color:var(--orange);margin-bottom:12px">🔥 Aquecimento: ${t.aquecimento}</div>`;
 
-    for (const ex of t.exercicios) {
-      const nome = nomeEx(ex, fase);
+    const catalogo = catalogoExercicios();
+    t.exercicios.forEach((ex, idx) => {
+      const nome = nomeSlot(selectedTreino, idx, fase);
       const sets = draftSets[nome] || [];
       const alvo = alvoEx(ex, fase) || (b ? (ex.tipo === "composto" ? b.composto : b.isolado) : "");
       const ultima = ultimaPerformance(nome);
+      const vars = variacoesDoSlot(ex);
+      const outros = catalogo.filter(n => !vars.includes(n));
+      const opt = (n) => `<option value="${n.replace(/"/g, "&quot;")}" ${n === nome ? "selected" : ""}>${n}</option>`;
       html += `<div class="exercicio">
         <div class="ex-head">
-          <span class="ex-nome">${nome}</span>
+          <span class="ex-sel-wrap">
+            <select class="ex-select" onchange="trocarExercicio(${idx}, this.value)">
+              <optgroup label="Variações deste slot">${vars.map(opt).join("")}${!vars.includes(nome) && !outros.includes(nome) ? opt(nome) : ""}</optgroup>
+              <optgroup label="Outros exercícios">${outros.map(opt).join("")}</optgroup>
+            </select>
+            <span class="ex-caret">▼</span>
+          </span>
           <span class="ex-alvo">${alvo}</span>
         </div>`;
       sets.forEach((set, i) => {
@@ -626,7 +655,7 @@ function renderTreino(v) {
         </div>`;
       });
       html += `<button class="add-set" onclick="addSet('${esc(nome)}')">+ série</button></div>`;
-    }
+    });
     html += `<div class="mb"><textarea id="obs-treino" placeholder="Observações (dores, energia, ajustes...)" oninput="draftObs=this.value;salvarRascunho()"></textarea></div>
       <button class="btn-primary" onclick="salvarSessao()">✅ Salvar treino</button>`;
   }
@@ -728,19 +757,36 @@ function ultimaPerformance(exNome) {
   return null;
 }
 
+function prefillSeries(nome, qtd) {
+  const ultima = ultimaPerformance(nome);
+  return Array.from({length: qtd}, (_, i) => {
+    const ref = ultima ? (ultima[i] || ultima[ultima.length-1]) : null;
+    return { peso: ref ? ref.peso : "", reps: "" };
+  });
+}
 function selecionarTreino(letra) {
   selectedTreino = letra;
   draftSets = {};
+  draftEscolhas = {};
   const fase = faseAtual(draftDate);
   for (const ex of TREINOS[letra].exercicios) {
     const nome = nomeEx(ex, fase);
-    const ultima = ultimaPerformance(nome);
-    draftSets[nome] = Array.from({length: ex.series}, (_, i) => {
-      const ref = ultima ? (ultima[i] || ultima[ultima.length-1]) : null;
-      return { peso: ref ? ref.peso : "", reps: "" };
-    });
+    draftSets[nome] = prefillSeries(nome, ex.series);
   }
   draftObs = "";
+  salvarRascunho();
+  render();
+}
+function trocarExercicio(idx, novoNome) {
+  const fase = faseAtual(draftDate);
+  const ex = TREINOS[selectedTreino].exercicios[idx];
+  const antigo = nomeSlot(selectedTreino, idx, fase);
+  if (novoNome === antigo) return;
+  if (draftSets[novoNome]) { alert("Esse exercício já está na ficha de hoje."); render(); return; }
+  delete draftSets[antigo];
+  if (novoNome === nomeEx(ex, fase)) delete draftEscolhas[idx];
+  else draftEscolhas[idx] = novoNome;
+  draftSets[novoNome] = prefillSeries(novoNome, ex.series);
   salvarRascunho();
   render();
 }
@@ -803,8 +849,8 @@ function salvarSessao() {
   const exercicios = [];
   const prs = [];
   const fase = faseAtual(draftDate);
-  for (const ex of TREINOS[selectedTreino].exercicios) {
-    const nome = nomeEx(ex, fase);
+  for (let idx = 0; idx < TREINOS[selectedTreino].exercicios.length; idx++) {
+    const nome = nomeSlot(selectedTreino, idx, fase);
     const series = (draftSets[nome] || [])
       .filter(s => s.reps !== "" && s.reps != null && !isNaN(s.reps))
       .map(s => ({ peso: (s.peso === "" || isNaN(s.peso)) ? 0 : s.peso, reps: s.reps }));
